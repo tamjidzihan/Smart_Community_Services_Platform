@@ -1,0 +1,65 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-primary-50: #EBF5FF;
+  --color-primary-100: #BFDBFE;
+  --color-primary-500: #3B82F6;
+  --color-primary-600: #1A56DB;
+  --color-primary-700: #1E3A8A;
+  
+  --color-secondary-500: #0E9F6E;
+  --color-secondary-600: #057A55;
+  
+  --color-danger-500: #E02424;
+  --color-danger-600: #C81E1E;
+  
+  --font-family-sans: Inter, system-ui, sans-serif;
+}
+
+/* Disable preflight (MUI handles resets) */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #F9FAFB;
+  color: #111928;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #F3F4F6; }
+::-webkit-scrollbar-thumb { background: #9CA3AF; border-radius: 3px; }
+
+.leaflet-container { height: 100%; width: 100%; border-radius: 12px; }
+
+/* Emergency pulse animation */
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+.emergency-pulse::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(224, 36, 36, 0.4);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* Blood group badge colors */
+.blood-badge-Apos { background: #FEE2E2; color: #991B1B; }
+.blood-badge-Aneg { background: #FEF3C7; color: #92400E; }
+.blood-badge-Bpos { background: #DBEAFE; color: #1E3A8A; }
+.blood-badge-Bneg { background: #D1FAE5; color: #065F46; }
+.blood-badge-ABpos { background: #EDE9FE; color: #4C1D95; }
+.blood-badge-ABneg { background: #FCE7F3; color: #831843; }
+.blood-badge-Opos { background: #FEE2E2; color: #991B1B; }
+.blood-badge-Oneg { background: #F3F4F6; color: #111928; }
