@@ -154,6 +154,7 @@ export default function HomePage() {
                       textAlign: 'center',
                       cursor: 'pointer',
                       width: '100%',
+                      minWidth: 120,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',

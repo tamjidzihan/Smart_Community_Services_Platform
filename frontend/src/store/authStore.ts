@@ -34,7 +34,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   hasRole: (role: string) => {
     const { user } = get()
-    return user?.roles.some((r) => r.name === role) ?? false
+    if (!user || !user.roles) return false
+    return user.roles.some((r) => r.name === role)
   },
 }))
 
