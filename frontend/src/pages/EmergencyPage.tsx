@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
-  Container, Box, Typography, Button, Grid, Card, CardContent,
+  Container, Box, Typography, Button, Grid, Card,
   FormControl, InputLabel, Select, MenuItem, TextField, Alert,
   CircularProgress, Chip,
 } from '@mui/material'
-import { Emergency, LocalHospital, Bloodtype, Phone } from '@mui/icons-material'
+import { Emergency } from '@mui/icons-material'
 import { useGeolocation } from '../hooks'
 import { ambulanceApi, healthcareApi } from '../api/services'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -89,7 +89,7 @@ export default function EmergencyPage() {
       ) : (
         <Grid container spacing={3}>
           {/* Request form */}
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Card sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>Request Ambulance</Typography>
 
@@ -157,7 +157,7 @@ export default function EmergencyPage() {
           </Grid>
 
           {/* Nearby resources */}
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Card sx={{ p: 2, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1.5, color: '#1A56DB' }}>
                 🏥 Nearby Emergency Hospitals ({nearbyHospitals?.data?.count || 0})

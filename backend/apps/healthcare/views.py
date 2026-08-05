@@ -66,7 +66,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'hospital', 'hospital_name', 'citizen_name',
             'scheduled_at', 'status', 'reason', 'notes', 'created_at',
         ]
-        read_only_fields = ['id', 'status', 'notes', 'created_at', 'citizen_name']
+        read_only_fields = ['id', 'hospital', 'status', 'notes', 'created_at', 'citizen_name']
 
 
 # ─── Views ───────────────────────────────────────────────────────────────────
@@ -128,12 +128,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.has_role('admin') or user.has_role('moderator'):
+        if user.is_staff or user.is_superuser or user.roles.filter(name__in=['admin', 'moderator']).exists():
             return Appointment.objects.all().select_related('citizen__profile', 'doctor', 'hospital')
         return Appointment.objects.filter(citizen=user).select_related('doctor', 'hospital')
 
     def perform_create(self, serializer):
-        appointment = serializer.save(citizen=self.request.user, hospital=serializer.validated_data['doctor'].hospital)
+        doctor = serializer.validated_data['doctor']
+        hospital = getattr(doctor, 'hospital', None)
+        appointment = serializer.save(citizen=self.request.user, hospital=hospital)
         from apps.notifications.utils import send_notification
         send_notification(
             user=self.request.user,
@@ -146,7 +148,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'])
     def cancel(self, request, pk=None):
         appointment = self.get_object()
-        if appointment.citizen != request.user and not request.user.has_role('admin'):
+        if appointment.citizen != request.user and not (request.user.is_staff or request.user.is_superuser or request.user.roles.filter(name='admin').exists()):
             return Response({'error': 'Not authorized.'}, status=403)
         appointment.status = 'cancelled'
         appointment.save(update_fields=['status'])

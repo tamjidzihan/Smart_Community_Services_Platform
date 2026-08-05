@@ -59,21 +59,42 @@ class BloodDonorViewSet(viewsets.ModelViewSet):
         return BloodDonor.objects.filter(is_available=True).select_related('user__profile')
 
     def perform_create(self, serializer):
+        full_name = self.request.data.get('full_name')
+        phone = self.request.data.get('phone')
+        address = self.request.data.get('address')
+        profile = getattr(self.request.user, 'profile', None)
+        if profile:
+            if full_name:
+                profile.full_name = full_name
+            if phone:
+                profile.phone = phone
+            if address:
+                profile.address = address
+            profile.save()
         serializer.save(user=self.request.user)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def search(self, request):
         blood_group = request.query_params.get('group', '')
         try:
-            lat = float(request.query_params.get('lat', 0))
-            lon = float(request.query_params.get('lng', 0))
-            radius = float(request.query_params.get('radius', 20))
+            lat = float(request.query_params.get('lat', 23.8103))
+            lon = float(request.query_params.get('lng', 90.4125))
+            radius = float(request.query_params.get('radius', 50))
         except (TypeError, ValueError):
-            return Response({'error': 'Invalid parameters'}, status=400)
+            lat, lon, radius = 23.8103, 90.4125, 50
 
-        compatible = COMPATIBLE_DONORS.get(blood_group, [blood_group])
-        qs = BloodDonor.objects.filter(is_available=True, blood_group__in=compatible).select_related('user__profile')
+        qs = BloodDonor.objects.filter(is_available=True).select_related('user__profile')
+        if blood_group:
+            compatible = COMPATIBLE_DONORS.get(blood_group, [blood_group])
+            qs = qs.filter(blood_group__in=compatible)
+
         results = build_geo_filter(qs, lat, lon, radius)
+        # Fallback to all matching donors if radius filter excludes everyone
+        if not results and qs.exists():
+            results = list(qs)
+            for r in results:
+                r._distance_km = None
+
         return Response({'results': BloodDonorSerializer(results, many=True).data, 'count': len(results)})
 
 

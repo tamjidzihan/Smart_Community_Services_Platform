@@ -4,11 +4,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   AppBar, Toolbar, IconButton, Badge, Avatar, Menu, MenuItem,
   Drawer, List, ListItem, ListItemIcon, ListItemText, Divider,
-  Box, Typography, Button, Chip,
+  Box, Typography, Button,
 } from '@mui/material'
 import {
   Menu as MenuIcon, Notifications, LocalHospital, Bloodtype,
-  DirectionsCar, School, People, AccountBalance, SmartToy,
+  School, People, AccountBalance, SmartToy,
   Dashboard, Person, Logout, Emergency, Home, MedicalServices,
 } from '@mui/icons-material'
 import { useAuthStore, useNotificationStore } from '../../store/authStore'
@@ -64,7 +64,7 @@ export default function Layout() {
 
           {/* Desktop nav */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, ml: 2, flex: 1 }}>
-            {NAV_ITEMS.slice(0, 5).map((item) => (
+            {NAV_ITEMS.map((item) => (
               <Button
                 key={item.path}
                 component={Link}

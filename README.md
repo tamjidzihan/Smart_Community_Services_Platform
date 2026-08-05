@@ -36,7 +36,7 @@
 
 **Database:** PostgreSQL 16
 
-**AI:** OpenAI GPT-4o
+**AI:** Google Gemini API (gemini-2.5-flash)
 
 **Storage:** Cloudinary CDN
 
@@ -128,7 +128,7 @@ Copy `.env.example` to `.env` and fill in:
 | `SECRET_KEY` | Django secret key (generate with `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`) |
 | `DB_PASSWORD` | PostgreSQL password |
 | `REDIS_PASSWORD` | Redis password |
-| `OPENAI_API_KEY` | OpenAI API key for AI features |
+| `GEMINI_API_KEY` | Google Gemini API key for AI features |
 | `CLOUDINARY_*` | Cloudinary credentials for file storage |
 | `GOOGLE_CLIENT_*` | Google OAuth credentials |
 | `EMAIL_*` | SMTP settings for emails |

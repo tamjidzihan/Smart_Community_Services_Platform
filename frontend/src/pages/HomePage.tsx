@@ -57,8 +57,8 @@ export default function HomePage() {
         ))}
 
         <Container maxWidth="lg" sx={{ position: 'relative' }}>
-          <Grid container spacing={4} alignItems="center">
-            <Grid item xs={12} md={7}>
+          <Grid container spacing={4} sx={{ alignItems: 'center' }}>
+            <Grid size={{ xs: 12, md: 7 }}>
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                 <Chip label="🚀 AI-Powered Community Platform" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white', mb: 3 }} />
                 <Typography variant="h2" sx={{ fontWeight: 800, lineHeight: 1.2, mb: 2, fontSize: { xs: '2rem', md: '3rem' } }}>
@@ -80,8 +80,10 @@ export default function HomePage() {
                       bgcolor: 'white', borderRadius: 2,
                       '& .MuiOutlinedInput-root': { borderRadius: 2 },
                     }}
-                    InputProps={{
-                      startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9CA3AF' }} /></InputAdornment>,
+                    slotProps={{
+                      input: {
+                        startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9CA3AF' }} /></InputAdornment>,
+                      },
                     }}
                   />
                   <Button type="submit" variant="contained" size="large" sx={{ bgcolor: '#0E9F6E', px: 3, whiteSpace: 'nowrap', '&:hover': { bgcolor: '#057A55' } }}>
@@ -102,11 +104,11 @@ export default function HomePage() {
             </Grid>
 
             {/* Stats */}
-            <Grid item xs={12} md={5}>
+            <Grid size={{ xs: 12, md: 5 }}>
               <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
                 <Grid container spacing={2}>
                   {STATS.map((stat) => (
-                    <Grid item xs={6} key={stat.label}>
+                    <Grid size={6} key={stat.label}>
                       <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center' }}>
                         <Typography variant="h4" sx={{ fontWeight: 800, color: '#60A5FA' }}>{stat.value}</Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5 }}>{stat.label}</Typography>
@@ -140,7 +142,7 @@ export default function HomePage() {
             }}
           >
             {CATEGORIES.map((cat) => (
-              <Grid item xs={6} sm={4} md={2} key={cat.label}>
+              <Grid size={{ xs: 6, sm: 4, md: 2 }} key={cat.label}>
                 <motion.div
                   whileHover={{ y: -4 }}
                   transition={{ type: 'spring', stiffness: 300 }}
@@ -207,8 +209,8 @@ export default function HomePage() {
       {/* Features section */}
       <Box sx={{ bgcolor: '#F9FAFB', py: 8 }}>
         <Container maxWidth="lg">
-          <Grid container spacing={6} alignItems="center">
-            <Grid item xs={12} md={6}>
+          <Grid container spacing={6} sx={{ alignItems: 'center' }}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>Smart Features</Typography>
               <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>AI-Powered Community Assistant</Typography>
               <Typography color="text.secondary" sx={{ mb: 3 }}>
@@ -230,7 +232,7 @@ export default function HomePage() {
               </Button>
             </Grid>
 
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <Paper sx={{ p: 3, bgcolor: '#111928', borderRadius: 3, color: 'white', fontFamily: 'monospace', fontSize: 13 }}>
                 <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                   {['#FF5F57', '#FEBC2E', '#28C840'].map((c) => (

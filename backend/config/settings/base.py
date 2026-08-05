@@ -210,8 +210,8 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': env('CLOUDINARY_API_SECRET', default=''),
 }
 
-# OpenAI
-OPENAI_API_KEY = env('OPENAI_API_KEY', default='')
+# Gemini API
+GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
 
 # Google OAuth
 SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = env('GOOGLE_CLIENT_ID', default='')

@@ -34,7 +34,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   hasRole: (role: string) => {
     const { user } = get()
-    if (!user || !user.roles) return false
+    if (!user) return false
+    if ((role === 'admin' || role === 'moderator') && (user.is_staff || user.is_superuser)) return true
+    if (!user.roles) return false
     return user.roles.some((r) => r.name === role)
   },
 }))

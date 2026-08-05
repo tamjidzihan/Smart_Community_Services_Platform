@@ -29,6 +29,7 @@ import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import AdminUsersPage from '../pages/admin/AdminUsersPage'
 import AdminAnalyticsPage from '../pages/admin/AdminAnalyticsPage'
 import NotFoundPage from '../pages/NotFoundPage'
+import ErrorPage from '../pages/ErrorPage'
 
 function ProtectedRoute({ roles }: { roles?: string[] }) {
   const { isAuthenticated, hasRole } = useAuthStore()
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Layout />,
+    errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
       { path: 'services', element: <ServicesPage /> },

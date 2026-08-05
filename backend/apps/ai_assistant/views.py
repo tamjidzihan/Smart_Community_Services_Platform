@@ -61,35 +61,39 @@ def chat(request):
     lat = serializer.validated_data.get('latitude')
     lon = serializer.validated_data.get('longitude')
 
-    if not settings.OPENAI_API_KEY:
+    if not settings.GEMINI_API_KEY:
         # Return mock response if no API key
         return Response({
             'session_id': session_id,
             'intent': 'general',
-            'human_response': f'I received your message: "{message}". Please configure OpenAI API key for full AI functionality.',
+            'human_response': f'I received your message: "{message}". Please configure GEMINI_API_KEY for full AI functionality.',
             'entities': {},
             'suggested_actions': [],
         })
 
     try:
-        from openai import OpenAI
-        client = OpenAI(api_key=settings.OPENAI_API_KEY)
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
         user_context = f'User message: {message}'
         if lat and lon:
             user_context += f'\nUser location: lat={lat}, lng={lon}'
 
-        response = client.chat.completions.create(
-            model='gpt-4o',
-            max_tokens=800,
-            messages=[
-                {'role': 'system', 'content': SYSTEM_PROMPT},
-                {'role': 'user', 'content': user_context},
-            ],
-            response_format={'type': 'json_object'},
+        config = types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            response_mime_type="application/json",
+            max_output_tokens=800,
         )
 
-        raw = response.choices[0].message.content
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=user_context,
+            config=config,
+        )
+
+        raw = response.text
         result = json.loads(raw)
 
         # Save conversation if user is authenticated

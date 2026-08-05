@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useAuthStore } from '../store/authStore'
+import { useAuthStore, useNotificationStore } from '../store/authStore'
 
 // ─── useGeolocation ───────────────────────────────────────────────────────────
 export function useGeolocation() {
@@ -98,12 +98,6 @@ export function useNotificationWS() {
   })
 }
 
-function useNotificationStore() {
-  const store = require('../store/authStore').useNotificationStore
-  return store.getState()
-}
-
-// ─── useDebounce ──────────────────────────────────────────────────────────────
 export function useDebounce<T>(value: T, delay = 400): T {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -114,21 +108,25 @@ export function useDebounce<T>(value: T, delay = 400): T {
 }
 
 // ─── useLocalStorage ──────────────────────────────────────────────────────────
-export function useLocalStorage<T>(key: string, initial: T) {
-  const [value, setValue] = useState<T>(() => {
+export function useLocalStorage<T>(key: string, initialValue: T) {
+  const [storedValue, setStoredValue] = useState<T>(() => {
     try {
-      const item = window.localStorage.getItem(key)
-      return item ? JSON.parse(item) : initial
-    } catch { return initial }
+      const item = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null
+      return item ? JSON.parse(item) : initialValue
+    } catch {
+      return initialValue
+    }
   })
 
   const set = useCallback((val: T | ((prev: T) => T)) => {
-    setValue((prev) => {
+    setStoredValue((prev) => {
       const next = typeof val === 'function' ? (val as (p: T) => T)(prev) : val
-      window.localStorage.setItem(key, JSON.stringify(next))
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(key, JSON.stringify(next))
+      }
       return next
     })
   }, [key])
 
-  return [value, set] as const
+  return [storedValue, set] as const
 }

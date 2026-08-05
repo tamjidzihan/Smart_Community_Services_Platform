@@ -35,8 +35,21 @@ class ServiceListingViewSet(viewsets.ModelViewSet):
         return ServiceListingSerializer
 
     def perform_create(self, serializer):
-        provider = self.request.user.provider_profile
-        serializer.save(provider=provider)
+        provider = getattr(self.request.user, 'provider_profile', None)
+        if not provider:
+            full_name = getattr(getattr(self.request.user, 'profile', None), 'full_name', '') or self.request.user.email
+            provider, _ = ProviderProfile.objects.get_or_create(
+                user=self.request.user,
+                defaults={
+                    'business_name': full_name,
+                    'verification_status': 'approved' if (self.request.user.is_staff or self.request.user.is_superuser) else 'pending'
+                }
+            )
+        is_admin = self.request.user.is_staff or self.request.user.is_superuser or self.request.user.roles.filter(name='admin').exists()
+        if is_admin:
+            serializer.save(provider=provider, status='active', is_verified=True)
+        else:
+            serializer.save(provider=provider)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def nearby(self, request):

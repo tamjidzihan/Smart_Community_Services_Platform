@@ -28,6 +28,7 @@ export const servicesApi = {
   getServices: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<ServiceListing>>('/services/listings/', { params }),
   getService: (id: string) => api.get<ServiceListing>(`/services/listings/${id}/`),
+  createService: (data: Partial<ServiceListing>) => api.post<ServiceListing>('/services/listings/', data),
   getNearby: (lat: number, lng: number, radius = 10, params?: Record<string, unknown>) =>
     api.get<{ results: ServiceListing[]; count: number }>('/services/listings/nearby/', {
       params: { lat, lng, radius, ...params },
@@ -45,9 +46,11 @@ export const healthcareApi = {
       params: { lat, lng, radius, emergency: emergency ? 'true' : 'false' },
     }),
   getHospital: (id: string) => api.get<Hospital>(`/healthcare/hospitals/${id}/`),
+  createHospital: (data: Partial<Hospital>) => api.post<Hospital>('/healthcare/hospitals/', data),
   getDoctors: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<Doctor>>('/healthcare/doctors/', { params }),
   getDoctor: (id: string) => api.get<Doctor>(`/healthcare/doctors/${id}/`),
+  createDoctor: (data: Partial<Doctor>) => api.post<Doctor>('/healthcare/doctors/', data),
   getAppointments: () => api.get<PaginatedResponse<Appointment>>('/healthcare/appointments/'),
   bookAppointment: (data: { doctor: string; scheduled_at: string; reason: string }) =>
     api.post<Appointment>('/healthcare/appointments/', data),
@@ -109,6 +112,8 @@ export const aiApi = {
 export const educationApi = {
   getInstitutions: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<Institution>>('/education/institutions/', { params }),
+  createInstitution: (data: Partial<Institution>) =>
+    api.post<Institution>('/education/institutions/', data),
   getNearby: (lat: number, lng: number, radius = 20) =>
     api.get<{ results: Institution[]; count: number }>('/education/institutions/nearby/', {
       params: { lat, lng, radius },
@@ -119,6 +124,7 @@ export const educationApi = {
 export const ngoApi = {
   getNGOs: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<NGO>>('/ngo/ngos/', { params }),
+  createNGO: (data: Partial<NGO>) => api.post<NGO>('/ngo/ngos/', data),
   getEvents: () => api.get('/ngo/events/'),
   registerVolunteer: (data: Record<string, unknown>) => api.post('/ngo/volunteers/', data),
 }
@@ -127,6 +133,7 @@ export const ngoApi = {
 export const govApi = {
   getOffices: (params?: Record<string, unknown>) =>
     api.get('/government/offices/', { params }),
+  createOffice: (data: Record<string, unknown>) => api.post('/government/offices/', data),
   getServices: (params?: Record<string, unknown>) =>
     api.get('/government/services/', { params }),
 }

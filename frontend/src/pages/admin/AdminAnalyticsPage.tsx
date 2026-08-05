@@ -1,8 +1,8 @@
-import { Container, Grid, Card, CardContent, Typography, Box, CircularProgress } from '@mui/material'
+import { Container, Grid, Paper, Card, CardContent, Typography, Box, CircularProgress } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { analyticsApi } from '../../api/services'
 import {
@@ -53,52 +53,48 @@ export default function AdminAnalyticsPage() {
 
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
 
-  const d = dashboard?.data
+  const dashData = dashboard?.data
+  const trendsData = appointments
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <Typography variant="h5" sx={{ fontWeight: 700, mb: 3 }}>Platform Analytics</Typography>
 
       {/* KPI Cards */}
-      <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<People />} label="Total Users" value={d?.users?.total || 0}
-            sub={`+${d?.users?.new_this_week || 0} this week`} color="#1A56DB" />
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard icon={<People />} label="Total Users" value={dashData?.users?.total || 0} sub="Registered citizens" color="#1A56DB" />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<LocalHospital />} label="Appointments" value={d?.appointments?.total || 0}
-            sub={`${d?.appointments?.today || 0} today`} color="#0E9F6E" />
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard icon={<LocalHospital />} label="Services" value={dashData?.appointments?.total || 0} sub="Active listings" color="#0E9F6E" />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<Bloodtype />} label="Blood Requests" value={d?.blood_requests?.total || 0}
-            sub={`${d?.blood_requests?.open || 0} open`} color="#E02424" />
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard icon={<Bloodtype />} label="Appointments" value={dashData?.blood_requests?.total || 0} sub="Total booked" color="#7C3AED" />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard icon={<Emergency />} label="Emergencies" value={d?.emergencies?.total || 0}
-            sub={`${d?.emergencies?.active || 0} active`} color="#D97706" />
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+          <StatCard icon={<Emergency />} label="Emergencies" value={dashData?.emergencies?.total || 0} sub="Dispatches handled" color="#E02424" />
         </Grid>
       </Grid>
 
-      <Grid container spacing={3}>
-        {/* Daily Users Line Chart */}
-        <Grid item xs={12} md={8}>
-          <Card sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>New User Registrations (14 Days)</Typography>
-            <ResponsiveContainer width="100%" height={280}>
+      {/* Charts Row 1 */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Daily User Registrations (Last 7 Days)</Typography>
+            <ResponsiveContainer width="100%" height={240}>
               <LineChart data={dailyUsers?.data?.results || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                <Line type="monotone" dataKey="new_users" stroke="#1A56DB" strokeWidth={2} dot={{ r: 4 }} name="New Users" />
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="new_users" stroke="#1A56DB" strokeWidth={2} dot={{ r: 4 }} />
               </LineChart>
             </ResponsiveContainer>
-          </Card>
+          </Paper>
         </Grid>
 
-        {/* Blood group pie */}
-        <Grid item xs={12} md={4}>
-          <Card sx={{ p: 3, height: '100%' }}>
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Donors by Blood Group</Typography>
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
@@ -108,7 +104,7 @@ export default function AdminAnalyticsPage() {
                   nameKey="blood_group"
                   cx="50%" cy="50%"
                   outerRadius={80}
-                  label={({ blood_group, count }) => `${blood_group}: ${count}`}
+                  label={(entry: any) => `${entry.blood_group}: ${entry.count}`}
                   labelLine={false}
                 >
                   {(bloodStats?.data?.donors_by_blood_group || []).map((_: any, i: number) => (
@@ -118,27 +114,28 @@ export default function AdminAnalyticsPage() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-          </Card>
+          </Paper>
         </Grid>
+      </Grid>
 
-        {/* Appointments Bar Chart */}
-        <Grid item xs={12} md={6}>
-          <Card sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Daily Appointments (14 Days)</Typography>
+      {/* Charts Row 2 */}
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 6 }}>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Appointment Trends</Typography>
             <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={appointments?.data?.results || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-                <Bar dataKey="appointments" fill="#0E9F6E" radius={[4, 4, 0, 0]} name="Appointments" />
+              <BarChart data={trendsData?.data?.results || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="appointments" fill="#0E9F6E" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </Card>
+          </Paper>
         </Grid>
 
-        {/* Emergency by type */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Emergency Requests by Type</Typography>
             <ResponsiveContainer width="100%" height={240}>
