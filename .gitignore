@@ -60,3 +60,6 @@ coverage.xml
 
 # Certbot
 nginx/certbot/
+
+client_secret*.json
+backend/client_secret*.json
