@@ -125,3 +125,33 @@ class BloodRequestViewSet(viewsets.ModelViewSet):
         from .tasks import notify_nearby_donors
         notify_nearby_donors.delay(str(request_obj.id))
 
+    @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
+    def update_status(self, request, pk=None):
+        user = request.user
+        if not (user.is_staff or user.is_superuser or user.roles.filter(name__in=['admin', 'moderator']).exists()):
+            return Response({'error': 'Not authorized.'}, status=403)
+        blood_request = self.get_object()
+        status_val = request.data.get('status')
+        units_fulfilled_val = request.data.get('units_fulfilled')
+        notes_val = request.data.get('notes')
+        
+        if status_val:
+            valid_statuses = [s[0] for s in BloodRequest.STATUS]
+            if status_val not in valid_statuses:
+                return Response({'error': 'Invalid status'}, status=400)
+            blood_request.status = status_val
+            if status_val in ['fulfilled', 'cancelled']:
+                from django.utils import timezone
+                blood_request.resolved_at = timezone.now()
+        if units_fulfilled_val is not None:
+            try:
+                blood_request.units_fulfilled = int(units_fulfilled_val)
+            except ValueError:
+                return Response({'error': 'Invalid units fulfilled value'}, status=400)
+        if notes_val is not None:
+            blood_request.notes = notes_val
+            
+        blood_request.save()
+        return Response({'message': 'Blood request updated.', 'status': blood_request.status})
+
+

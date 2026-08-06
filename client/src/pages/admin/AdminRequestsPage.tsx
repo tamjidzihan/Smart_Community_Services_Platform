@@ -3,8 +3,9 @@ import {
   Box, Container, Typography, Tabs, Tab, Chip, Avatar,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, CircularProgress, Alert, Pagination, TextField, Select,
-  MenuItem, FormControl, InputLabel, Stack, Divider, Tooltip,
-  InputAdornment, Badge,
+  MenuItem, FormControl, InputLabel, Stack, Tooltip,
+  InputAdornment, Badge, Button, Dialog, DialogTitle, DialogContent,
+  DialogActions, IconButton,
 } from '@mui/material'
 import AssignmentIcon from '@mui/icons-material/Assignment'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
@@ -14,8 +15,13 @@ import SearchIcon from '@mui/icons-material/Search'
 import PersonIcon from '@mui/icons-material/Person'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import FiberManualRecordIcon from '@mui/icons-material/FiberManualRecord'
-import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import EditIcon from '@mui/icons-material/Edit'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { adminApi } from '../../api/services'
+import type { Appointment, EmergencyRequest, BloodRequest } from '../../types'
+
+
+
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function fmtDate(iso: string | null | undefined) {
@@ -92,14 +98,30 @@ function LoadingRow() {
 // APPOINTMENTS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function AppointmentsTab() {
+  const queryClient = useQueryClient()
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+
+  // Edit dialog state
+  const [selectedAppt, setSelectedAppt] = useState<Appointment | null>(null)
+  const [editStatus, setEditStatus] = useState('')
+  const [editNotes, setEditNotes] = useState('')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-appointments', status, page],
     queryFn: () => adminApi.listAppointments({ status: status || undefined, page }),
     placeholderData: keepPreviousData,
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { status?: string; notes?: string } }) =>
+      adminApi.updateAppointmentStatus(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-appointments'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-appointments-count'] })
+      setSelectedAppt(null)
+    },
   })
 
   const appts = data?.data?.results ?? []
@@ -114,17 +136,33 @@ function AppointmentsTab() {
       )
     : appts
 
+  const handleOpenEdit = (appt: Appointment) => {
+    setSelectedAppt(appt)
+    setEditStatus(appt.status)
+    setEditNotes(appt.notes || '')
+  }
+
+  const handleSave = () => {
+    if (selectedAppt) {
+      updateMutation.mutate({
+        id: selectedAppt.id,
+        payload: { status: editStatus, notes: editNotes },
+      })
+    }
+  }
+
   return (
     <Box>
       {/* Filters */}
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <TextField
+          variant="outlined"
           placeholder="Search citizen, doctor, hospital…"
           size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flex: 1, maxWidth: 380, bgcolor: 'white', borderRadius: 2 }}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment> }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment> } }}
         />
         <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'white' }}>
           <InputLabel>Status</InputLabel>
@@ -154,6 +192,7 @@ function AppointmentsTab() {
                 <TableCell sx={{ fontWeight: 700 }}>Reason</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Booked On</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -197,6 +236,11 @@ function AppointmentsTab() {
                       <TableCell>
                         <Typography variant="caption" color="text.secondary">{fmtDateShort(a.created_at)}</Typography>
                       </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" color="primary" onClick={() => handleOpenEdit(a)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
                     </TableRow>
                   )
                 })}
@@ -209,6 +253,51 @@ function AppointmentsTab() {
           </Box>
         )}
       </Paper>
+
+      {/* Edit Dialog */}
+      <Dialog open={selectedAppt !== null} onClose={() => setSelectedAppt(null)} fullWidth maxWidth="sm" sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Process Appointment</DialogTitle>
+        <DialogContent dividers>
+          {selectedAppt && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">CITIZEN</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>{selectedAppt.citizen_name || '—'}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">DOCTOR & HOSPITAL</Typography>
+                <Typography variant="body2">Dr. {selectedAppt.doctor_name} ({selectedAppt.doctor_specialization})</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{selectedAppt.hospital_name}</Typography>
+              </Box>
+
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select value={editStatus} label="Status" onChange={(e) => setEditStatus(e.target.value)}>
+                  {Object.entries(APPT_STATUS).map(([k, v]) => (
+                    <MenuItem key={k} value={k}>{v.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Admin/Doctor Notes"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                multiline
+                rows={3}
+                fullWidth
+                placeholder="Enter notes about consultation fee, scheduling changes, etc."
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setSelectedAppt(null)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained" color="primary" sx={{ px: 3, borderRadius: 2, fontWeight: 600 }} disabled={updateMutation.isPending}>
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
@@ -217,15 +306,39 @@ function AppointmentsTab() {
 // EMERGENCY REQUESTS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function EmergencyRequestsTab() {
+  const queryClient = useQueryClient()
   const [status, setStatus] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+
+  // Edit dialog state
+  const [selectedEmerg, setSelectedEmerg] = useState<EmergencyRequest | null>(null)
+  const [editStatus, setEditStatus] = useState('')
+  const [editAmb, setEditAmb] = useState('')
+  const [editEta, setEditEta] = useState<number | ''>('')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-emergency', status, page],
     queryFn: () => adminApi.listEmergencyRequests({ status: status || undefined, page }),
     placeholderData: keepPreviousData,
     refetchInterval: 30_000, // live updates every 30s
+  })
+
+  // Fetch ambulances for assignment
+  const { data: ambData } = useQuery({
+    queryKey: ['admin-ambulances-list'],
+    queryFn: () => adminApi.listAmbulances(),
+  })
+  const ambulances = ambData?.data?.results ?? []
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { status?: string; assigned_ambulance?: string; estimated_arrival_minutes?: number } }) =>
+      adminApi.updateEmergencyStatus(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-emergency'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-emergency-count'] })
+      setSelectedEmerg(null)
+    },
   })
 
   const emergencies = data?.data?.results ?? []
@@ -239,16 +352,37 @@ function EmergencyRequestsTab() {
       )
     : emergencies
 
+  const handleOpenEdit = (emerg: EmergencyRequest) => {
+    setSelectedEmerg(emerg)
+    setEditStatus(emerg.status)
+    setEditAmb((emerg.ambulance as any)?.id || '')
+    setEditEta(emerg.estimated_arrival_minutes ?? '')
+  }
+
+  const handleSave = () => {
+    if (selectedEmerg) {
+      updateMutation.mutate({
+        id: selectedEmerg.id,
+        payload: {
+          status: editStatus,
+          assigned_ambulance: editAmb || undefined,
+          estimated_arrival_minutes: editEta !== '' ? Number(editEta) : undefined,
+        },
+      })
+    }
+  }
+
   return (
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
         <TextField
+          variant="outlined"
           placeholder="Search citizen, address, type…"
           size="small"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flex: 1, maxWidth: 380, bgcolor: 'white', borderRadius: 2 }}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment> }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" color="action" /></InputAdornment> } }}
         />
         <FormControl size="small" sx={{ minWidth: 180, bgcolor: 'white' }}>
           <InputLabel>Status</InputLabel>
@@ -281,12 +415,13 @@ function EmergencyRequestsTab() {
                 <TableCell sx={{ fontWeight: 700 }}>ETA</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Requested</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading ? <LoadingRow /> : filtered.length === 0
                 ? <EmptyState icon={<EmergencyShareIcon sx={{ fontSize: 'inherit' }} />} message="No emergency requests found" />
-                : filtered.map((e, idx) => {
+                : filtered.map((e) => {
                   const s = EMERGENCY_STATUS[e.status] ?? { color: 'default', dot: '#9CA3AF' }
                   return (
                     <TableRow key={e.id} hover sx={{ bgcolor: e.status === 'pending' ? '#FEF3C720' : undefined }}>
@@ -329,7 +464,7 @@ function EmergencyRequestsTab() {
                             <Typography variant="caption" sx={{ fontWeight: 600 }}>
                               {(e.ambulance as any).registration_number}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary" display="block">
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                               {(e.ambulance as any).ambulance_type}
                             </Typography>
                           </Box>
@@ -351,6 +486,11 @@ function EmergencyRequestsTab() {
                       <TableCell>
                         <Typography variant="caption" color="text.secondary">{fmtDate(e.created_at)}</Typography>
                       </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" color="primary" onClick={() => handleOpenEdit(e)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
                     </TableRow>
                   )
                 })}
@@ -363,6 +503,64 @@ function EmergencyRequestsTab() {
           </Box>
         )}
       </Paper>
+
+      {/* Edit Dialog */}
+      <Dialog open={selectedEmerg !== null} onClose={() => setSelectedEmerg(null)} fullWidth maxWidth="sm" sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Process Emergency Dispatch</DialogTitle>
+        <DialogContent dividers>
+          {selectedEmerg && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">CITIZEN & PHONE</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>{selectedEmerg.citizen_name || '—'}</Typography>
+                <Typography variant="body2" color="text.secondary">{selectedEmerg.citizen_phone || ''}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">PICKUP ADDRESS & CONDITION</Typography>
+                <Typography variant="body2">{selectedEmerg.pickup_address || '—'}</Typography>
+                <Typography variant="caption" color="error" sx={{ display: 'block' }}>{selectedEmerg.patient_condition}</Typography>
+              </Box>
+
+
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select value={editStatus} label="Status" onChange={(e) => setEditStatus(e.target.value)}>
+                  {Object.keys(EMERGENCY_STATUS).map((k) => (
+                    <MenuItem key={k} value={k}>{k.replace('_', ' ').toUpperCase()}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth>
+                <InputLabel>Assign Ambulance</InputLabel>
+                <Select value={editAmb} label="Assign Ambulance" onChange={(e) => setEditAmb(e.target.value)}>
+                  <MenuItem value="">Unassigned</MenuItem>
+                  {ambulances.map((amb) => (
+                    <MenuItem key={amb.id} value={amb.id}>
+                      {amb.registration_number} ({amb.ambulance_type} - {amb.status})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                label="Estimated Arrival Minutes (ETA)"
+                type="number"
+                value={editEta}
+                onChange={(e) => setEditEta(e.target.value === '' ? '' : Number(e.target.value))}
+                fullWidth
+                placeholder="e.g. 15"
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setSelectedEmerg(null)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained" color="error" sx={{ px: 3, borderRadius: 2, fontWeight: 600 }} disabled={updateMutation.isPending}>
+            Update Dispatch
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
@@ -371,10 +569,17 @@ function EmergencyRequestsTab() {
 // BLOOD REQUESTS TAB
 // ═══════════════════════════════════════════════════════════════════════════════
 function BloodRequestsTab() {
+  const queryClient = useQueryClient()
   const [status, setStatus] = useState('')
   const [urgency, setUrgency] = useState('')
   const [bloodGroup, setBloodGroup] = useState('')
   const [page, setPage] = useState(1)
+
+  // Edit dialog state
+  const [selectedBlood, setSelectedBlood] = useState<BloodRequest | null>(null)
+  const [editStatus, setEditStatus] = useState('')
+  const [editUnits, setEditUnits] = useState<number>(0)
+  const [editNotes, setEditNotes] = useState('')
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['admin-blood-requests', status, urgency, bloodGroup, page],
@@ -387,11 +592,41 @@ function BloodRequestsTab() {
     placeholderData: keepPreviousData,
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { status?: string; units_fulfilled?: number; notes?: string } }) =>
+      adminApi.updateBloodRequestStatus(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-blood-requests'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-blood-count'] })
+      setSelectedBlood(null)
+    },
+  })
+
   const requests = data?.data?.results ?? []
   const totalPages = data?.data?.total_pages ?? 1
   const totalCount = data?.data?.count ?? 0
 
   const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+  const handleOpenEdit = (blood: BloodRequest) => {
+    setSelectedBlood(blood)
+    setEditStatus(blood.status)
+    setEditUnits(blood.units_fulfilled)
+    setEditNotes(blood.notes || '')
+  }
+
+  const handleSave = () => {
+    if (selectedBlood) {
+      updateMutation.mutate({
+        id: selectedBlood.id,
+        payload: {
+          status: editStatus,
+          units_fulfilled: editUnits,
+          notes: editNotes,
+        },
+      })
+    }
+  }
 
   return (
     <Box>
@@ -442,6 +677,7 @@ function BloodRequestsTab() {
                 <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Requested</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Resolved</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -498,6 +734,11 @@ function BloodRequestsTab() {
                       <TableCell>
                         <Typography variant="caption" color="text.secondary">{fmtDateShort(r.resolved_at)}</Typography>
                       </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" color="primary" onClick={() => handleOpenEdit(r)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
                     </TableRow>
                   )
                 })}
@@ -510,6 +751,64 @@ function BloodRequestsTab() {
           </Box>
         )}
       </Paper>
+
+      {/* Edit Dialog */}
+      <Dialog open={selectedBlood !== null} onClose={() => setSelectedBlood(null)} fullWidth maxWidth="sm" sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 700 }}>Process Blood Request</DialogTitle>
+        <DialogContent dividers>
+          {selectedBlood && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              <Box>
+                <Typography variant="caption" color="text.secondary">PATIENT & BLOOD GROUP</Typography>
+                <Typography variant="body1" sx={{ fontWeight: 600 }}>{selectedBlood.patient_name || '—'}</Typography>
+                <Typography variant="body2" color="error" sx={{ fontWeight: 700 }}>Group: {selectedBlood.blood_group}</Typography>
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary">HOSPITAL & URGENCY</Typography>
+                <Typography variant="body2">{selectedBlood.hospital_name || '—'}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Urgency: {selectedBlood.urgency.toUpperCase()}</Typography>
+              </Box>
+
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select value={editStatus} label="Status" onChange={(e) => setEditStatus(e.target.value)}>
+                  {Object.keys(BLOOD_STATUS).map((k) => (
+                    <MenuItem key={k} value={k}>{k.replace('_', ' ')}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <TextField
+                variant="outlined"
+                label="Units Fulfilled"
+                type="number"
+                value={editUnits}
+                onChange={(e) => setEditUnits(Number(e.target.value))}
+                fullWidth
+                slotProps={{ htmlInput: { min: 0, max: selectedBlood.units_needed } }}
+                helperText={`Needed: ${selectedBlood.units_needed} units`}
+              />
+
+
+              <TextField
+                label="Notes / Comments"
+                value={editNotes}
+                onChange={(e) => setEditNotes(e.target.value)}
+                multiline
+                rows={3}
+                fullWidth
+                placeholder="Enter donation dates, details about donor dispatch, etc."
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setSelectedBlood(null)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+          <Button onClick={handleSave} variant="contained" color="secondary" sx={{ px: 3, borderRadius: 2, fontWeight: 600 }} disabled={updateMutation.isPending}>
+            Save Changes
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

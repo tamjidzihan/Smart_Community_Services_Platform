@@ -64,17 +64,20 @@ export default function AdminUsersPage() {
         {/* Filters */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
           <TextField
+            variant="outlined"
             placeholder="Search by name, email or phone…"
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             size="small"
             sx={{ flex: 1, maxWidth: 400, bgcolor: 'white', borderRadius: 2 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" color="action" />
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" color="action" />
+                  </InputAdornment>
+                ),
+              },
             }}
           />
           <FormControl size="small" sx={{ minWidth: 160, bgcolor: 'white', borderRadius: 2 }}>

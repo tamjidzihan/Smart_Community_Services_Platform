@@ -7,7 +7,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .models import Hospital, Doctor, DoctorSchedule, Appointment
 from utils.geo import calculate_distance_km
-from utils.permissions import IsAdminRole
+from utils.permissions import IsAdminRole, IsModeratorOrAdmin
 
 
 # ─── Serializers ─────────────────────────────────────────────────────────────
@@ -153,5 +153,20 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointment.status = 'cancelled'
         appointment.save(update_fields=['status'])
         return Response({'message': 'Appointment cancelled.'})
+
+    @action(detail=True, methods=['patch'], permission_classes=[IsModeratorOrAdmin])
+    def update_status(self, request, pk=None):
+        appointment = self.get_object()
+        status_val = request.data.get('status')
+        notes_val = request.data.get('notes')
+        if status_val:
+            valid_statuses = [s[0] for s in Appointment.STATUS_CHOICES]
+            if status_val not in valid_statuses:
+                return Response({'error': 'Invalid status'}, status=400)
+            appointment.status = status_val
+        if notes_val is not None:
+            appointment.notes = notes_val
+        appointment.save()
+        return Response({'message': 'Appointment updated.', 'status': appointment.status})
 
 

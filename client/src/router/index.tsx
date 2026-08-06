@@ -29,6 +29,8 @@ import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import AdminUsersPage from '../pages/admin/AdminUsersPage'
 import AdminAnalyticsPage from '../pages/admin/AdminAnalyticsPage'
 import AdminRequestsPage from '../pages/admin/AdminRequestsPage'
+import AdminAmbulancePage from '../pages/admin/AdminAmbulancePage'
+
 import NotFoundPage from '../pages/NotFoundPage'
 import ErrorPage from '../pages/ErrorPage'
 
@@ -94,6 +96,8 @@ export const router = createBrowserRouter([
           { path: 'admin/users', element: <AdminUsersPage /> },
           { path: 'admin/analytics', element: <AdminAnalyticsPage /> },
           { path: 'admin/requests', element: <AdminRequestsPage /> },
+          { path: 'admin/ambulances', element: <AdminAmbulancePage /> },
+
         ]
       },
 

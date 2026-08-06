@@ -24,6 +24,13 @@ class AmbulanceViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(provider=self.request.user)
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def nearby(self, request):
         try:
@@ -95,18 +102,44 @@ class EmergencyRequestViewSet(viewsets.ModelViewSet):
     def update_status(self, request, pk=None):
         emergency = self.get_object()
         new_status = request.data.get('status')
-        valid_statuses = [s[0] for s in EmergencyRequest.STATUS_CHOICES]
-        if new_status not in valid_statuses:
-            return Response({'error': 'Invalid status'}, status=400)
         old_status = emergency.status
-        emergency.status = new_status
-        if new_status == 'dispatched':
-            emergency.dispatched_at = timezone.now()
-        elif new_status in ['resolved', 'cancelled']:
-            emergency.resolved_at = timezone.now()
+        
+        if new_status:
+            valid_statuses = [s[0] for s in EmergencyRequest.STATUS_CHOICES]
+            if new_status not in valid_statuses:
+                return Response({'error': 'Invalid status'}, status=400)
+            emergency.status = new_status
+            if new_status == 'dispatched':
+                emergency.dispatched_at = timezone.now()
+            elif new_status in ['resolved', 'cancelled']:
+                emergency.resolved_at = timezone.now()
+        
+        ambulance_id = request.data.get('assigned_ambulance')
+        if ambulance_id is not None:
+            if ambulance_id == '':
+                emergency.assigned_ambulance = None
+            else:
+                try:
+                    ambulance = Ambulance.objects.get(id=ambulance_id)
+                    emergency.assigned_ambulance = ambulance
+                except (Ambulance.DoesNotExist, ValueError):
+                    return Response({'error': 'Ambulance not found'}, status=404)
+        
+        eta = request.data.get('estimated_arrival_minutes')
+        if eta is not None:
+            if eta == '':
+                emergency.estimated_arrival_minutes = None
+            else:
+                try:
+                    emergency.estimated_arrival_minutes = int(eta)
+                except ValueError:
+                    return Response({'error': 'Invalid ETA value'}, status=400)
+                    
         emergency.save()
-        notify_emergency_status_change.delay(str(emergency.id), old_status, new_status)
-        return Response({'message': f'Status updated to {new_status}.'})
+        if new_status:
+            notify_emergency_status_change.delay(str(emergency.id), old_status, new_status)
+        return Response({'message': 'Emergency request updated.'})
+
 
 
 class EmergencyContactViewSet(viewsets.ModelViewSet):

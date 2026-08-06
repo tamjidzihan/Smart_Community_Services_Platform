@@ -9,7 +9,7 @@ import {
 import {
   Menu as MenuIcon, Notifications, LocalHospital, Bloodtype,
   School, People, AccountBalance, SmartToy,
-  Dashboard, Person, Logout, Emergency, Home, MedicalServices,
+  Dashboard, Person, Logout, Emergency, Home, MedicalServices, LocalShipping,
 } from '@mui/icons-material'
 import { useAuthStore, useNotificationStore } from '../../store/authStore'
 import { authApi } from '../../api/services'
@@ -115,9 +115,14 @@ export default function Layout() {
                     <Person sx={{ mr: 1, fontSize: 20 }} /> Profile
                   </MenuItem>
                   {hasRole('admin') && (
-                    <MenuItem component={Link} to="/admin" onClick={() => setAnchorEl(null)}>
-                      <AccountBalance sx={{ mr: 1, fontSize: 20 }} /> Admin Panel
-                    </MenuItem>
+                    <>
+                      <MenuItem component={Link} to="/admin" onClick={() => setAnchorEl(null)}>
+                        <AccountBalance sx={{ mr: 1, fontSize: 20 }} /> Admin Panel
+                      </MenuItem>
+                      <MenuItem component={Link} to="/admin/ambulances" onClick={() => setAnchorEl(null)}>
+                        <LocalShipping sx={{ mr: 1, fontSize: 20 }} /> Manage Ambulances
+                      </MenuItem>
+                    </>
                   )}
                   <Divider />
                   <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>

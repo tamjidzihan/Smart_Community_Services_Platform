@@ -180,7 +180,7 @@ export default function AdminAnalyticsPage() {
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [v, 'New Users']}
+                  formatter={(v: any) => [v, 'New Users']}
                 />
                 <Line
                   type="monotone"
@@ -211,14 +211,14 @@ export default function AdminAnalyticsPage() {
                     cx="50%"
                     cy="50%"
                     outerRadius={90}
-                    label={({ blood_group, percent }) => `${blood_group} ${(percent * 100).toFixed(0)}%`}
+                    label={({ blood_group, percent }: any) => `${blood_group} ${((percent || 0) * 100).toFixed(0)}%`}
                     labelLine={false}
                   >
                     {donorsByGroup.map((_: any, i: number) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number, name: string) => [v, name]} />
+                  <Tooltip formatter={(v: any, name: any) => [v, name]} />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -253,7 +253,7 @@ export default function AdminAnalyticsPage() {
                 <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{ borderRadius: 8, fontSize: 12 }}
-                  formatter={(v: number) => [v, 'Appointments']}
+                  formatter={(v: any) => [v, 'Appointments']}
                 />
                 <Bar dataKey="appointments" fill="#0E9F6E" radius={[4, 4, 0, 0]} name="Appointments" />
               </BarChart>

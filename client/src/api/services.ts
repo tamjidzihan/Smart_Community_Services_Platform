@@ -181,12 +181,29 @@ export const adminApi = {
   // Appointments — /healthcare/appointments/ (admins get all)
   listAppointments: (params?: { status?: string; page?: number }) =>
     api.get<PaginatedResponse<Appointment>>('/healthcare/appointments/', { params }),
+  updateAppointmentStatus: (id: string, data: { status?: string; notes?: string }) =>
+    api.patch<{ message: string; status: string }>(`/healthcare/appointments/${id}/update_status/`, data),
 
   // Emergency requests — /ambulance/emergency/ (admins get all)
   listEmergencyRequests: (params?: { status?: string; page?: number }) =>
     api.get<PaginatedResponse<EmergencyRequest>>('/ambulance/emergency/', { params }),
+  updateEmergencyStatus: (id: string, data: { status?: string; assigned_ambulance?: string; estimated_arrival_minutes?: number }) =>
+    api.patch<{ message: string }>(`/ambulance/emergency/${id}/update_status/`, data),
 
   // Blood requests — /blood/requests/ (admins get all)
   listBloodRequests: (params?: { status?: string; urgency?: string; blood_group?: string; page?: number }) =>
     api.get<PaginatedResponse<BloodRequest>>('/blood/requests/', { params }),
+  updateBloodRequestStatus: (id: string, data: { status?: string; units_fulfilled?: number; notes?: string }) =>
+    api.patch<{ message: string; status: string }>(`/blood/requests/${id}/update_status/`, data),
+
+  // Ambulance Management
+  listAmbulances: () =>
+    api.get<{ results: Ambulance[]; count: number }>('/ambulance/vehicles/'),
+  createAmbulance: (data: { registration_number: string; ambulance_type: string; driver_name: string; driver_phone: string; status: string }) =>
+    api.post<Ambulance>('/ambulance/vehicles/', data),
+  updateAmbulance: (id: string, data: Partial<{ registration_number: string; ambulance_type: string; driver_name: string; driver_phone: string; status: string }>) =>
+    api.patch<Ambulance>(`/ambulance/vehicles/${id}/`, data),
+  deleteAmbulance: (id: string) =>
+    api.delete(`/ambulance/vehicles/${id}/`),
 }
+
