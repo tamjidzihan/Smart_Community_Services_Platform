@@ -154,3 +154,39 @@ export const analyticsApi = {
   getBloodStats: () => api.get('/analytics/blood-stats/'),
   getEmergencyStats: () => api.get('/analytics/emergency-stats/'),
 }
+
+// ─── Admin ────────────────────────────────────────────────────────────────────
+export const adminApi = {
+  listUsers: (params?: { search?: string; role?: string; page?: number; page_size?: number }) =>
+    api.get<{
+      count: number
+      total_pages: number
+      current_page: number
+      results: {
+        id: string
+        email: string
+        full_name: string
+        phone: string
+        avatar_url: string
+        address: string
+        is_active: boolean
+        is_email_verified: boolean
+        is_staff: boolean
+        date_joined: string
+        last_login: string | null
+        roles: string[]
+      }[]
+    }>('/auth/admin/users/', { params }),
+
+  // Appointments — /healthcare/appointments/ (admins get all)
+  listAppointments: (params?: { status?: string; page?: number }) =>
+    api.get<PaginatedResponse<Appointment>>('/healthcare/appointments/', { params }),
+
+  // Emergency requests — /ambulance/emergency/ (admins get all)
+  listEmergencyRequests: (params?: { status?: string; page?: number }) =>
+    api.get<PaginatedResponse<EmergencyRequest>>('/ambulance/emergency/', { params }),
+
+  // Blood requests — /blood/requests/ (admins get all)
+  listBloodRequests: (params?: { status?: string; urgency?: string; blood_group?: string; page?: number }) =>
+    api.get<PaginatedResponse<BloodRequest>>('/blood/requests/', { params }),
+}

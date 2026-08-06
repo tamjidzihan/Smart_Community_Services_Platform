@@ -7,14 +7,16 @@ from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.db.models import Q
 
-from .models import UserProfile, EmailVerificationToken, PasswordResetToken
+from .models import  PasswordResetToken
 from .serializers import (
     RegisterSerializer, UserSerializer, CustomTokenObtainPairSerializer,
     VerifyEmailSerializer, ForgotPasswordSerializer, ResetPasswordSerializer,
     UpdateProfileSerializer, ChangePasswordSerializer,
 )
 from .tasks import send_verification_email, send_password_reset_email
+from utils.permissions import IsAdminRole
 
 User = get_user_model()
 
@@ -142,3 +144,56 @@ class ChangePasswordView(generics.GenericAPIView):
         user.set_password(serializer.validated_data['new_password'])
         user.save(update_fields=['password'])
         return Response({'message': 'Password changed successfully.'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminRole])
+def admin_list_users(request):
+    """Admin-only endpoint: paginated list of all users with search & role filter."""
+    search = request.query_params.get('search', '').strip()
+    role = request.query_params.get('role', '').strip()
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 20))
+
+    qs = User.objects.select_related('profile').prefetch_related('roles').order_by('-date_joined')
+
+    if search:
+        qs = qs.filter(
+            Q(email__icontains=search) |
+            Q(profile__full_name__icontains=search) |
+            Q(profile__phone__icontains=search)
+        )
+
+    if role:
+        qs = qs.filter(roles__name=role)
+
+    total = qs.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    users = qs[start:end]
+
+    results = []
+    for u in users:
+        profile = getattr(u, 'profile', None)
+        results.append({
+            'id': str(u.id),
+            'email': u.email,
+            'full_name': profile.full_name if profile else '',
+            'phone': profile.phone if profile else '',
+            'avatar_url': profile.avatar_url if profile else '',
+            'address': profile.address if profile else '',
+            'is_active': u.is_active,
+            'is_email_verified': u.is_email_verified,
+            'is_staff': u.is_staff,
+            'date_joined': u.date_joined.isoformat(),
+            'last_login': u.last_login.isoformat() if u.last_login else None,
+            'roles': [r.name for r in u.roles.all()],
+        })
+
+    total_pages = (total + page_size - 1) // page_size
+    return Response({
+        'count': total,
+        'total_pages': total_pages,
+        'current_page': page,
+        'results': results,
+    })

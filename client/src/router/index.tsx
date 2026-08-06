@@ -28,6 +28,7 @@ import NotificationsPage from '../pages/NotificationsPage'
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import AdminUsersPage from '../pages/admin/AdminUsersPage'
 import AdminAnalyticsPage from '../pages/admin/AdminAnalyticsPage'
+import AdminRequestsPage from '../pages/admin/AdminRequestsPage'
 import NotFoundPage from '../pages/NotFoundPage'
 import ErrorPage from '../pages/ErrorPage'
 
@@ -92,6 +93,7 @@ export const router = createBrowserRouter([
           { path: 'admin', element: <AdminDashboardPage /> },
           { path: 'admin/users', element: <AdminUsersPage /> },
           { path: 'admin/analytics', element: <AdminAnalyticsPage /> },
+          { path: 'admin/requests', element: <AdminRequestsPage /> },
         ]
       },
 

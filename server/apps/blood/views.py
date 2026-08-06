@@ -103,6 +103,20 @@ class BloodRequestViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        user = self.request.user
+        if user.is_staff or user.is_superuser or user.roles.filter(name__in=['admin', 'moderator']).exists():
+            qs = BloodRequest.objects.all().select_related('requester__profile').order_by('-created_at')
+            # Optional filters for admin view
+            urgency = self.request.query_params.get('urgency')
+            status = self.request.query_params.get('status')
+            blood_group = self.request.query_params.get('blood_group')
+            if urgency:
+                qs = qs.filter(urgency=urgency)
+            if status:
+                qs = qs.filter(status=status)
+            if blood_group:
+                qs = qs.filter(blood_group=blood_group)
+            return qs
         return BloodRequest.objects.filter(requester=self.request.user).order_by('-created_at')
 
     def perform_create(self, serializer):
