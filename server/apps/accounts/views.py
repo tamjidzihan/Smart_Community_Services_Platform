@@ -117,7 +117,7 @@ class MeView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_object(self):
+    def get_object(self): # type: ignore
         return self.request.user
 
     def put(self, request, *args, **kwargs):
@@ -176,18 +176,18 @@ def admin_list_users(request):
     for u in users:
         profile = getattr(u, 'profile', None)
         results.append({
-            'id': str(u.id),
+            'id': str(u.id), # type: ignore
             'email': u.email,
             'full_name': profile.full_name if profile else '',
             'phone': profile.phone if profile else '',
             'avatar_url': profile.avatar_url if profile else '',
             'address': profile.address if profile else '',
             'is_active': u.is_active,
-            'is_email_verified': u.is_email_verified,
+            'is_email_verified': u.is_email_verified, # type: ignore
             'is_staff': u.is_staff,
             'date_joined': u.date_joined.isoformat(),
             'last_login': u.last_login.isoformat() if u.last_login else None,
-            'roles': [r.name for r in u.roles.all()],
+            'roles': [r.name for r in u.roles.all()], # type: ignore
         })
 
     total_pages = (total + page_size - 1) // page_size

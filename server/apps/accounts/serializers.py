@@ -45,7 +45,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = ['email', 'password', 'confirm_password', 'full_name']
 
-    def validate(self, data):
+    def validate(self, data): # type: ignore
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         return data
@@ -56,7 +56,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(**validated_data)
         # Assign citizen role by default
         citizen_role, _ = Role.objects.get_or_create(name='citizen')
-        user.roles.add(citizen_role)
+        user.roles.add(citizen_role) # type: ignore
         # Create profile
         UserProfile.objects.create(user=user, full_name=full_name)
         # Create email verification token
@@ -69,7 +69,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         user = self.user
-        data['user'] = UserSerializer(user).data
+        data['user'] = UserSerializer(user).data # type: ignore
         return data
 
 
@@ -104,7 +104,7 @@ class ResetPasswordSerializer(serializers.Serializer):
     password = serializers.CharField(min_length=8, write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
-    def validate(self, data):
+    def validate(self, data): # type: ignore
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         try:
@@ -131,7 +131,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(min_length=8, write_only=True)
     confirm_password = serializers.CharField(write_only=True)
 
-    def validate(self, data):
+    def validate(self, data): # type: ignore
         if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
         return data
