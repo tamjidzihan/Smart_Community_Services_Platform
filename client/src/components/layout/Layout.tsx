@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material'
 import { useAuthStore, useNotificationStore } from '../../store/authStore'
 import { authApi } from '../../api/services'
+import { useNotificationWS } from '../../hooks'
 
 const NAV_ITEMS = [
   { label: 'Services', path: '/services', icon: <MedicalServices /> },
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
 ]
 
 export default function Layout() {
+  useNotificationWS()
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated, user, logout, hasRole } = useAuthStore()

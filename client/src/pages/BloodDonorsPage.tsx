@@ -14,11 +14,11 @@ import { bloodApi } from '../api/services'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+const BLOOD_GROUPS = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
 export default function BloodDonorsPage() {
-  const [bloodGroup, setBloodGroup] = useState('O+')
-  const [radius, setRadius] = useState(20)
+  const [bloodGroup, setBloodGroup] = useState('')
+  const [radius, setRadius] = useState(50)
 
   // Detailed Donor Registration State
   const [openRegisterModal, setOpenRegisterModal] = useState(false)
@@ -43,7 +43,7 @@ export default function BloodDonorsPage() {
   const { data: donorsData, isLoading, error } = useQuery({
     queryKey: ['blood-donors', bloodGroup, radius],
     queryFn: async () => {
-      const res = await bloodApi.searchDonors(bloodGroup, 23.8103, 90.4125, radius)
+      const res = await bloodApi.searchDonors(bloodGroup === 'All' ? '' : bloodGroup, 23.8103, 90.4125, radius)
       return res.data
     },
   })
@@ -161,12 +161,12 @@ export default function BloodDonorsPage() {
                 fullWidth
                 select
                 label="Required Blood Group"
-                value={bloodGroup}
-                onChange={(e) => setBloodGroup(e.target.value)}
+                value={bloodGroup || 'All'}
+                onChange={(e) => setBloodGroup(e.target.value === 'All' ? '' : e.target.value)}
               >
                 {BLOOD_GROUPS.map((bg) => (
                   <MenuItem key={bg} value={bg}>
-                    {bg} (Includes compatible types)
+                    {bg === 'All' ? 'All Blood Groups (Show All Donors)' : `${bg} (Includes compatible types)`}
                   </MenuItem>
                 ))}
               </TextField>
@@ -302,7 +302,7 @@ export default function BloodDonorsPage() {
                     onChange={(e) => setDonorGroup(e.target.value)}
                     required
                   >
-                    {BLOOD_GROUPS.map((bg) => (
+                    {BLOOD_GROUPS.filter((bg) => bg !== 'All').map((bg) => (
                       <MenuItem key={bg} value={bg}>{bg}</MenuItem>
                     ))}
                   </TextField>

@@ -34,6 +34,7 @@ def dispatch_ambulance(self, emergency_id):
             emergency.estimated_arrival_minutes = max(1, int(min_dist / 0.5))  # ~30km/h avg
             emergency.save()
 
+            # Send notification to citizen
             send_notification(
                 user=emergency.citizen,
                 title='🚑 Ambulance Dispatched!',
@@ -41,6 +42,27 @@ def dispatch_ambulance(self, emergency_id):
                 notification_type='ambulance_dispatch',
                 data={'emergency_id': str(emergency.id), 'ambulance_id': str(nearest.id)},
             )
+
+            # Send notification & dispatch details to ALL ADMINS
+            try:
+                from apps.notifications.utils import notify_admins
+                user_name = getattr(emergency.citizen, 'profile', None) and emergency.citizen.profile.full_name or emergency.citizen.email
+                notify_admins(
+                    title=f"✅ Ambulance Dispatched: {nearest.registration_number}",
+                    body=f"Ambulance {nearest.registration_number} (Driver: {nearest.driver_name}, {nearest.driver_phone}) dispatched for {user_name}. ETA: ~{emergency.estimated_arrival_minutes} mins. Location: {emergency.pickup_address or 'GPS position'}",
+                    notification_type="ambulance_dispatch",
+                    data={
+                        "link": "/admin/requests?tab=emergency",
+                        "emergency_id": str(emergency.id),
+                        "ambulance_id": str(nearest.id),
+                        "registration_number": nearest.registration_number,
+                        "driver_name": nearest.driver_name,
+                        "driver_phone": nearest.driver_phone,
+                        "eta_minutes": emergency.estimated_arrival_minutes,
+                    }
+                )
+            except Exception:
+                pass
         else:
             emergency.status = 'no_resource'
             emergency.save(update_fields=['status'])
@@ -51,6 +73,22 @@ def dispatch_ambulance(self, emergency_id):
                 notification_type='emergency_no_resource',
                 data={'emergency_id': str(emergency.id)},
             )
+            # Notify admins of shortage
+            try:
+                from apps.notifications.utils import notify_admins
+                user_name = getattr(emergency.citizen, 'profile', None) and emergency.citizen.profile.full_name or emergency.citizen.email
+                notify_admins(
+                    title="⚠️ CRITICAL: No Ambulance Resource Available!",
+                    body=f"Emergency request from {user_name} ({emergency.patient_condition}) has NO available ambulance nearby!",
+                    notification_type="emergency_no_resource",
+                    data={
+                        "link": "/admin/requests?tab=emergency",
+                        "emergency_id": str(emergency.id),
+                    }
+                )
+            except Exception:
+                pass
+
             # Retry after 60 seconds
             raise self.retry(countdown=60)
 

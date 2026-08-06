@@ -125,6 +125,24 @@ class BloodRequestViewSet(viewsets.ModelViewSet):
         from .tasks import notify_nearby_donors
         notify_nearby_donors.delay(str(request_obj.id))
 
+        # Notify Admins with action details & direct link
+        try:
+            from apps.notifications.utils import notify_admins
+            user_name = getattr(self.request.user, 'profile', None) and self.request.user.profile.full_name or self.request.user.email
+            notify_admins(
+                title=f"🩸 Urgent Blood Request ({request_obj.blood_group})",
+                body=f"New emergency blood request by {user_name} for Patient: {request_obj.patient_name} ({request_obj.units_needed} unit(s)). Hospital: {request_obj.hospital_name or 'N/A'}",
+                notification_type="blood_request",
+                data={
+                    "link": "/admin/requests",
+                    "request_id": str(request_obj.id),
+                    "blood_group": request_obj.blood_group,
+                    "patient_name": request_obj.patient_name,
+                }
+            )
+        except Exception:
+            pass
+
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
     def update_status(self, request, pk=None):
         user = request.user

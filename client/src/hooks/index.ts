@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAuthStore, useNotificationStore } from '../store/authStore'
+import { useQueryClient } from '@tanstack/react-query'
 
 // ─── useGeolocation ───────────────────────────────────────────────────────────
 export function useGeolocation() {
@@ -48,9 +49,8 @@ export function useWebSocket(path: string, options: WSOptions = {}) {
   useEffect(() => {
     if (options.enabled === false || !path) return
 
-    const wsBase = window.location.protocol === 'https:' ? 'wss://' : 'ws://'
-    const host = window.location.host
-    const url = `${wsBase}${host}${path}${token ? `?token=${token}` : ''}`
+    const defaultWsHost = import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss://' : 'ws://'}${window.location.hostname}:8000`
+    const url = `${defaultWsHost}${path}${token ? `?token=${token}` : ''}`
 
     const ws = new WebSocket(url)
     wsRef.current = ws
@@ -88,12 +88,17 @@ export function useWebSocket(path: string, options: WSOptions = {}) {
 export function useNotificationWS() {
   const { isAuthenticated } = useAuthStore()
   const { setUnreadCount, incrementUnread } = useNotificationStore()
+  const queryClient = useQueryClient()
 
   useWebSocket('/ws/notifications/', {
     enabled: isAuthenticated,
     onMessage: (data: any) => {
       if (data.type === 'unread_count') setUnreadCount(data.count)
-      if (data.type === 'notification') incrementUnread()
+      if (data.type === 'notification') {
+        incrementUnread()
+        // Automatically refresh the notifications list in UI without reloading the page
+        queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      }
     },
   })
 }

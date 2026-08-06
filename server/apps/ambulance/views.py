@@ -34,24 +34,34 @@ class AmbulanceViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
     def nearby(self, request):
         try:
-            lat = float(request.query_params.get('lat', 0))
-            lon = float(request.query_params.get('lng', 0))
-            radius = float(request.query_params.get('radius', 15))
+            lat = float(request.query_params.get('lat', 23.8103))
+            lon = float(request.query_params.get('lng', 90.4125))
+            radius = float(request.query_params.get('radius', 50))
         except (TypeError, ValueError):
-            return Response({'error': 'Invalid coordinates'}, status=400)
+            lat, lon, radius = 23.8103, 90.4125, 50
 
         qs = Ambulance.objects.filter(is_active=True, status='available')
-        results = build_geo_filter(qs, lat, lon, radius, location_field=None)
-        # Manual filter since we have separate lat/lon fields
+        
         filtered = []
         from utils.geo import calculate_distance_km
         for amb in qs:
-            if amb.current_latitude and amb.current_longitude:
+            if amb.current_latitude is not None and amb.current_longitude is not None:
                 dist = calculate_distance_km(lat, lon, amb.current_latitude, amb.current_longitude)
-                if dist <= radius:
+                if radius is None or dist <= radius:
                     amb._distance_km = round(dist, 2)
                     filtered.append(amb)
-        filtered.sort(key=lambda x: x._distance_km)
+            else:
+                # If ambulance has no location set yet, include it with unknown distance
+                amb._distance_km = None
+                filtered.append(amb)
+
+        # Fallback to all available ambulances if distance filtering yields none
+        if not filtered and qs.exists():
+            filtered = list(qs)
+            for amb in filtered:
+                amb._distance_km = None
+
+        filtered.sort(key=lambda x: getattr(x, '_distance_km', 0) if getattr(x, '_distance_km', None) is not None else 9999)
         return Response({'results': AmbulanceSerializer(filtered, many=True).data, 'count': len(filtered)})
 
     @action(detail=True, methods=['patch'], permission_classes=[IsProviderOrAdmin])
@@ -93,6 +103,25 @@ class EmergencyRequestViewSet(viewsets.ModelViewSet):
         emergency = serializer.save(citizen=request.user)
         # Trigger async dispatch
         dispatch_ambulance.delay(str(emergency.id))
+        
+        # Notify Admins with action details & direct link
+        try:
+            from apps.notifications.utils import notify_admins
+            user_name = getattr(request.user, 'profile', None) and request.user.profile.full_name or request.user.email
+            notify_admins(
+                title="🚨 Emergency Ambulance Requested!",
+                body=f"New emergency request by {user_name}. Type: {emergency.request_type.title()} | Condition: {emergency.patient_condition} | Pickup: {emergency.pickup_address}",
+                notification_type="ambulance_dispatch",
+                data={
+                    "link": "/admin/ambulances",
+                    "emergency_id": str(emergency.id),
+                    "patient_condition": emergency.patient_condition,
+                    "pickup_address": emergency.pickup_address,
+                }
+            )
+        except Exception:
+            pass
+
         return Response(
             self.get_serializer(emergency, context={'request': request}).data,
             status=status.HTTP_201_CREATED,

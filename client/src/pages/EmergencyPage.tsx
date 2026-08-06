@@ -26,18 +26,12 @@ export default function EmergencyPage() {
 
   const { data: nearbyHospitals } = useQuery({
     queryKey: ['nearby-hospitals-emergency', location],
-    queryFn: () => location
-      ? healthcareApi.getNearbyHospitals(location.lat, location.lng, 15, true)
-      : null,
-    enabled: !!location,
+    queryFn: () => healthcareApi.getNearbyHospitals(location?.lat || 23.8103, location?.lng || 90.4125, 15, true),
   })
 
   const { data: nearbyAmbulances } = useQuery({
     queryKey: ['nearby-ambulances', location],
-    queryFn: () => location
-      ? ambulanceApi.getNearbyAmbulances(location.lat, location.lng)
-      : null,
-    enabled: !!location,
+    queryFn: () => ambulanceApi.getNearbyAmbulances(location?.lat || 23.8103, location?.lng || 90.4125),
   })
 
   const requestMutation = useMutation({
@@ -187,7 +181,7 @@ export default function EmergencyPage() {
                 </Box>
               ))}
               {!nearbyAmbulances?.data?.results?.length && (
-                <Typography variant="body2" color="text.secondary">Enable location to see ambulances</Typography>
+                <Typography variant="body2" color="text.secondary">No available ambulances in range</Typography>
               )}
             </Card>
 

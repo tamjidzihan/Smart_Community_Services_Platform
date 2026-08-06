@@ -1,5 +1,6 @@
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.db import models
 
 
 def send_notification(user, title, body, notification_type='general', data=None):
@@ -29,3 +30,23 @@ def send_notification(user, title, body, notification_type='general', data=None)
     except Exception:
         pass  # WebSocket push is best-effort
     return notif
+
+
+def notify_admins(title, body, notification_type='system', data=None):
+    """Send a notification to all admin and moderator users."""
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    
+    admins = User.objects.filter(
+        models.Q(is_superuser=True) | models.Q(is_staff=True) | models.Q(roles__name__in=['admin', 'moderator'])
+    ).distinct()
+
+    for admin in admins:
+        send_notification(
+            user=admin,
+            title=title,
+            body=body,
+            notification_type=notification_type,
+            data=data or {},
+        )
+

@@ -136,7 +136,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         doctor = serializer.validated_data['doctor']
         hospital = getattr(doctor, 'hospital', None)
         appointment = serializer.save(citizen=self.request.user, hospital=hospital)
-        from apps.notifications.utils import send_notification
+        from apps.notifications.utils import send_notification, notify_admins
         send_notification(
             user=self.request.user,
             title='📅 Appointment Booked',
@@ -144,6 +144,20 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             notification_type='appointment',
             data={'appointment_id': str(appointment.id)},
         )
+        # Notify Admins
+        try:
+            user_name = getattr(self.request.user, 'profile', None) and self.request.user.profile.full_name or self.request.user.email
+            notify_admins(
+                title="📅 New Appointment Booked",
+                body=f"New appointment booked by {user_name} with Dr. {appointment.doctor.full_name} ({appointment.hospital.name if appointment.hospital else 'General'}).",
+                notification_type="appointment",
+                data={
+                    "link": "/admin/requests",
+                    "appointment_id": str(appointment.id),
+                }
+            )
+        except Exception:
+            pass
 
     @action(detail=True, methods=['patch'])
     def cancel(self, request, pk=None):

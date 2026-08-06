@@ -21,7 +21,7 @@ def build_geo_filter(queryset, lat, lon, radius_km, location_field='location'):
 
         if obj_lat is not None and obj_lon is not None:
             dist = calculate_distance_km(lat, lon, float(obj_lat), float(obj_lon))
-        else:
+        elif location_field:
             loc = getattr(obj, location_field, None)
             if loc and hasattr(loc, 'y') and hasattr(loc, 'x'):
                 dist = calculate_distance_km(lat, lon, loc.y, loc.x)
@@ -31,6 +31,10 @@ def build_geo_filter(queryset, lat, lon, radius_km, location_field='location'):
                 obj._distance_km = None
                 results.append(obj)
                 continue
+        else:
+            obj._distance_km = None
+            results.append(obj)
+            continue
 
         if radius_km is None or dist <= radius_km:
             obj._distance_km = round(dist, 2)
