@@ -12,13 +12,26 @@ interface AuthState {
   hasRole: (role: string) => boolean
 }
 
+// Helper to safely parse user from localStorage
+function loadUser(): User | null {
+  try {
+    const raw = localStorage.getItem('user')
+    return raw ? JSON.parse(raw) as User : null
+  } catch {
+    return null
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  user: null,
+  user: loadUser(),
   accessToken: localStorage.getItem('access_token'),
   isAuthenticated: !!localStorage.getItem('access_token'),
   isLoading: false,
 
-  setUser: (user) => set({ user, isAuthenticated: true }),
+  setUser: (user) => {
+    localStorage.setItem('user', JSON.stringify(user))
+    set({ user, isAuthenticated: true })
+  },
 
   setTokens: (access, refresh) => {
     localStorage.setItem('access_token', access)
@@ -29,6 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('refresh_token')
+    localStorage.removeItem('user')
     set({ user: null, accessToken: null, isAuthenticated: false })
   },
 

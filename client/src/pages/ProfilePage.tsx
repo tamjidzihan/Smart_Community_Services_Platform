@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Container, Typography, Box, Paper, Grid, Avatar, TextField, Button, Alert, Divider, Chip
 } from '@mui/material'
@@ -7,8 +7,20 @@ import EmailIcon from '@mui/icons-material/Email'
 import PhoneIcon from '@mui/icons-material/Phone'
 import HomeIcon from '@mui/icons-material/Home'
 import { useAuthStore } from '../store/authStore'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { authApi } from '../api/services'
+import type { UserProfile } from '../types'
+
+interface ProfilePayload {
+  full_name: string
+  phone: string
+  address: string
+  bio: string
+}
+
+interface ApiError {
+  response?: { data?: { detail?: string } }
+}
 
 export default function ProfilePage() {
   const { user, setUser } = useAuthStore()
@@ -21,15 +33,40 @@ export default function ProfilePage() {
   const [updateSuccess, setUpdateSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
+  // Fetch fresh user data from the backend on mount
+  const { data: freshUser } = useQuery({
+    queryKey: ['me'],
+    queryFn: authApi.me,
+    enabled: !!user,
+  })
+
+  // Sync the external Zustand store when fresh backend data arrives
+  // (no local React setState in the effect to avoid cascading renders)
+  useEffect(() => {
+    if (freshUser?.data) {
+      setUser(freshUser.data)
+    }
+  }, [freshUser, setUser])
+
+  // Display name comes from the store (source of truth), falling back to the draft
+  const displayName = user?.profile?.full_name || fullName
+
   const profileMutation = useMutation({
-    mutationFn: (data: any) => authApi.updateProfile(data),
+    mutationFn: (data: ProfilePayload) => authApi.updateProfile(data),
     onSuccess: (res) => {
       setUpdateSuccess(true)
-      if (user) {
-        setUser({ ...user, profile: res.data })
+      const base = freshUser?.data || user
+      if (base) {
+        const updatedUser = { ...base, profile: res.data as UserProfile }
+        setUser(updatedUser)
+        // Sync the local form state with the freshly saved values
+        setFullName(res.data?.full_name || '')
+        setPhone(res.data?.phone || '')
+        setAddress(res.data?.address || '')
+        setBio(res.data?.bio || '')
       }
     },
-    onError: (err: any) => {
+    onError: (err: ApiError) => {
       setErrorMsg(err.response?.data?.detail || 'Failed to update profile.')
     },
   })
@@ -52,11 +89,11 @@ export default function ProfilePage() {
         <Paper elevation={0} sx={{ p: 4, borderRadius: 4, border: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
             <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main', fontSize: 32, fontWeight: 700 }}>
-              {fullName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+              {displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
             </Avatar>
             <Box>
               <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                {fullName || 'Citizen Profile'}
+                {displayName || 'Citizen Profile'}
               </Typography>
               <Typography variant="body1" color="text.secondary">
                 {user?.email}
