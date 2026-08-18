@@ -1,31 +1,59 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
 import {
   Container, Typography, Box, Grid, Card, CardContent, TextField, Button, Chip,
-  CircularProgress, Alert, Paper, InputAdornment, Divider, Dialog, DialogTitle, DialogContent, DialogActions
+  CircularProgress, Alert, Paper, InputAdornment, Divider, Dialog, DialogTitle, DialogContent, DialogActions,
+  IconButton, Tooltip, Stack, FormControl, InputLabel, Select, MenuItem
 } from '@mui/material'
 import VolunteerActivismIcon from '@mui/icons-material/VolunteerActivism'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
+import PhoneIcon from '@mui/icons-material/Phone'
+import EmailIcon from '@mui/icons-material/Email'
 import SearchIcon from '@mui/icons-material/Search'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import GroupsIcon from '@mui/icons-material/Groups'
-import { useQuery, useMutation } from '@tanstack/react-query'
-import { ngoApi } from '../api/services'
+import ViewModuleIcon from '@mui/icons-material/ViewModule'
+import ViewListIcon from '@mui/icons-material/ViewList'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { ngoApi, adminApi } from '../api/services'
 import { useAuthStore } from '../store/authStore'
 import { useNavigate } from 'react-router-dom'
 
 import AddIcon from '@mui/icons-material/Add'
 import AdminAddEntityModal from '../components/admin/AdminAddEntityModal'
+import type { NGO } from '../types'
 
 export default function NGOPage() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [openRegisterModal, setOpenRegisterModal] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [editingNGO, setEditingNGO] = useState<NGO | null>(null)
+  const [ngoToDelete, setNGOToDelete] = useState<NGO | null>(null)
   const [skills, setSkills] = useState('')
   const [regSuccess, setRegSuccess] = useState(false)
 
+  // Form states
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [website, setWebsite] = useState('')
+  const [isVerified, setIsVerified] = useState(false)
+  const [formError, setFormError] = useState('')
+
   const { isAuthenticated, hasRole } = useAuthStore()
   const canAdd = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
+  const isAdmin = hasRole('admin') || hasRole('moderator')
   const navigate = useNavigate()
+
+  // View mode state: 'grid' or 'list'
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const { data: ngoData, isLoading, error } = useQuery({
     queryKey: ['ngos', search],
@@ -44,6 +72,26 @@ export default function NGOPage() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<NGO> }) => adminApi.updateNGO(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ngos'] })
+      handleCloseEditDialog()
+    },
+    onError: (err: any) => {
+      setFormError(err.response?.data?.detail || err.message || 'Failed to update NGO')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: adminApi.deleteNGO,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ngos'] })
+      setDeleteConfirmOpen(false)
+      setNGOToDelete(null)
+    },
+  })
+
   const handleOpenRegister = () => {
     if (!isAuthenticated) {
       navigate('/login')
@@ -51,6 +99,55 @@ export default function NGOPage() {
     }
     setOpenRegisterModal(true)
     setRegSuccess(false)
+  }
+
+  const handleOpenEdit = (ngo: any) => {
+    setEditingNGO(ngo)
+    setName(ngo.name)
+    setDescription(ngo.description || '')
+    setAddress(ngo.address)
+    setPhone(ngo.phone || '')
+    setEmail(ngo.email || '')
+    setWebsite(ngo.website || '')
+    setIsVerified(ngo.is_verified || false)
+    setFormError('')
+    setEditDialogOpen(true)
+  }
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false)
+    setEditingNGO(null)
+    setFormError('')
+  }
+
+  const handleOpenDeleteConfirm = (ngo: any) => {
+    setNGOToDelete(ngo)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (ngoToDelete) {
+      deleteMutation.mutate(ngoToDelete.id)
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError('')
+
+    if (!editingNGO) return
+
+    const payload: Partial<NGO> = {
+      name,
+      description,
+      address,
+      phone,
+      email,
+      website,
+      is_verified: isVerified,
+    }
+
+    updateMutation.mutate({ id: editingNGO.id, data: payload })
   }
 
   return (
@@ -75,6 +172,26 @@ export default function NGOPage() {
                 Add NGO
               </Button>
             )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 0.5 }}>
+            <Tooltip title="Grid View">
+              <IconButton
+                size="small"
+                color={viewMode === 'grid' ? 'primary' : 'inherit'}
+                onClick={() => setViewMode('grid')}
+              >
+                <ViewModuleIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="List View">
+              <IconButton
+                size="small"
+                color={viewMode === 'list' ? 'primary' : 'inherit'}
+                onClick={() => setViewMode('list')}
+              >
+                <ViewListIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Box>
 
@@ -115,14 +232,31 @@ export default function NGOPage() {
         )}
 
         {ngoData && (
-          <Grid container spacing={3}>
+          viewMode === 'grid' ? (
+            <Grid container spacing={3}>
             {ngoData.results.map((ngo) => (
               <Grid size={{ xs: 12, sm: 6, md: 4 }} key={ngo.id}>
                 <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
                   <CardContent sx={{ flexGrow: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                       <Chip label="Verified NGO" color="primary" size="small" variant="outlined" />
-                      {ngo.is_verified && <Chip icon={<VerifiedIcon />} label="Certified" color="success" size="small" />}
+                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                        {ngo.is_verified && <Chip icon={<VerifiedIcon />} label="Certified" color="success" size="small" />}
+                        {isAdmin && (
+                          <>
+                            <Tooltip title="Edit NGO">
+                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(ngo); }}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete NGO">
+                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(ngo); }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Box>
                     </Box>
 
                     <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
@@ -158,7 +292,68 @@ export default function NGOPage() {
                 </Card>
               </Grid>
             ))}
-          </Grid>
+            </Grid>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {ngoData.results.map((ngo) => (
+                <Card key={ngo.id} sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Chip label="Verified NGO" color="primary" size="small" variant="outlined" />
+                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                          {ngo.name}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                        {ngo.is_verified && <Chip icon={<VerifiedIcon />} label="Certified" color="success" size="small" />}
+                        {isAdmin && (
+                          <>
+                            <Tooltip title="Edit NGO">
+                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(ngo); }}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete NGO">
+                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(ngo); }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Box>
+                    </Box>
+
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {ngo.description || 'Non-profit organization dedicated to community development and humanitarian support.'}
+                    </Typography>
+
+                    <Divider sx={{ my: 1.5 }} />
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <LocationOnIcon fontSize="small" color="action" />
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {ngo.address}
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <GroupsIcon fontSize="small" color="action" />
+                      <Typography variant="caption" color="text.secondary">
+                        Active Volunteers: <strong>{ngo.volunteer_count || 24}</strong>
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2, mt: 2, borderTop: 1, borderColor: 'divider' }}>
+                      <Button variant="outlined" onClick={handleOpenRegister} sx={{ borderRadius: 2 }}>
+                        Join Initiatives
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          )
         )}
 
         {/* Volunteer Modal */}
@@ -191,6 +386,55 @@ export default function NGOPage() {
         </Dialog>
 
         <AdminAddEntityModal open={openAddModal} onClose={() => setOpenAddModal(false)} initialTab={4} />
+
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="md" sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+          <form onSubmit={handleSubmit}>
+            <DialogTitle sx={{ fontWeight: 700 }}>Edit NGO Information</DialogTitle>
+            <DialogContent dividers>
+              <Stack spacing={3} sx={{ mt: 1 }}>
+                {formError && <Alert severity="error">{formError}</Alert>}
+                <TextField variant="outlined" label="NGO Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
+                <TextField variant="outlined" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} multiline rows={3} fullWidth />
+                <TextField variant="outlined" label="Address" value={address} onChange={(e) => setAddress(e.target.value)} multiline rows={2} fullWidth required slotProps={{ input: { startAdornment: <LocationOnIcon sx={{ color: 'text.secondary', mr: 1, mt: 1, alignSelf: 'flex-start' }} /> } }} />
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField variant="outlined" label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth slotProps={{ input: { startAdornment: <PhoneIcon sx={{ color: 'text.secondary', mr: 1 }} /> } }} />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField variant="outlined" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth slotProps={{ input: { startAdornment: <EmailIcon sx={{ color: 'text.secondary', mr: 1 }} /> } }} />
+                  </Grid>
+                </Grid>
+                <TextField variant="outlined" label="Website" value={website} onChange={(e) => setWebsite(e.target.value)} fullWidth placeholder="https://example.org" />
+                {isAdmin && (
+                  <FormControl fullWidth>
+                    <InputLabel>Verified</InputLabel>
+                    <Select value={isVerified ? 'yes' : 'no'} label="Verified" onChange={(e) => setIsVerified(e.target.value === 'yes')}>
+                      <MenuItem value="yes">Yes - Verified</MenuItem>
+                      <MenuItem value="no">No - Not Verified</MenuItem>
+                    </Select>
+                  </FormControl>
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5 }}>
+              <Button onClick={handleCloseEditDialog} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+              <Button type="submit" variant="contained" color="primary" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={updateMutation.isPending}>Save Changes</Button>
+            </DialogActions>
+          </form>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Confirm Deletion</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to delete <strong>{ngoToDelete?.name}</strong>? This action cannot be undone.</Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 2.5 }}>
+            <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+            <Button onClick={handleConfirmDelete} variant="contained" color="error" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={deleteMutation.isPending}>Delete</Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </Box>
   )

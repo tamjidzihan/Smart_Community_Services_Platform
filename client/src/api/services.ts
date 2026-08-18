@@ -2,7 +2,7 @@ import api from './axios'
 import type {
   AuthTokens, User, ServiceListing, ServiceCategory, Hospital, Doctor,
   Appointment, BloodDonor, BloodRequest, Ambulance, EmergencyRequest,
-  Notification, AIChatResponse, PaginatedResponse, Institution, NGO, Review,
+  Notification, AIChatResponse, PaginatedResponse, Institution, NGO, Review, GovOffice,
 } from '../types'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -25,6 +25,7 @@ export const authApi = {
 // ─── Services ─────────────────────────────────────────────────────────────────
 export const servicesApi = {
   getCategories: () => api.get<ServiceCategory[]>('/services/categories/'),
+  createCategory: (data: { name: string; description?: string }) => api.post<ServiceCategory>('/services/categories/', data),
   getServices: (params?: Record<string, unknown>) =>
     api.get<PaginatedResponse<ServiceListing>>('/services/listings/', { params }),
   getService: (id: string) => api.get<ServiceListing>(`/services/listings/${id}/`),
@@ -51,6 +52,8 @@ export const healthcareApi = {
     api.get<PaginatedResponse<Doctor>>('/healthcare/doctors/', { params }),
   getDoctor: (id: string) => api.get<Doctor>(`/healthcare/doctors/${id}/`),
   createDoctor: (data: Partial<Doctor>) => api.post<Doctor>('/healthcare/doctors/', data),
+  updateDoctor: (id: string, data: Partial<Doctor>) => api.patch<Doctor>(`/healthcare/doctors/${id}/`, data),
+  deleteDoctor: (id: string) => api.delete(`/healthcare/doctors/${id}/`),
   getAppointments: () => api.get<PaginatedResponse<Appointment>>('/healthcare/appointments/'),
   bookAppointment: (data: { doctor: string; scheduled_at: string; reason: string }) =>
     api.post<Appointment>('/healthcare/appointments/', data),
@@ -205,5 +208,43 @@ export const adminApi = {
     api.patch<Ambulance>(`/ambulance/vehicles/${id}/`, data),
   deleteAmbulance: (id: string) =>
     api.delete(`/ambulance/vehicles/${id}/`),
+
+  // Service Listings Management (admin access to all services)
+  listAllServices: (params?: { search?: string; category?: string; status?: string; page?: number; page_size?: number }) =>
+    api.get<PaginatedResponse<ServiceListing>>('/services/listings/', { params }),
+  updateService: (id: string, data: Partial<ServiceListing>) =>
+    api.patch<ServiceListing>(`/services/listings/${id}/`, data),
+  deleteService: (id: string) =>
+    api.delete(`/services/listings/${id}/`),
+
+  // Hospital Management (admin access to all hospitals)
+  updateHospital: (id: string, data: Partial<Hospital>) =>
+    api.patch<Hospital>(`/healthcare/hospitals/${id}/`, data),
+  deleteHospital: (id: string) =>
+    api.delete(`/healthcare/hospitals/${id}/`),
+
+  // Education Institution Management
+  updateEducation: (id: string, data: Partial<Institution>) =>
+    api.patch<Institution>(`/education/institutions/${id}/`, data),
+  deleteEducation: (id: string) =>
+    api.delete(`/education/institutions/${id}/`),
+
+  // NGO Management
+  updateNGO: (id: string, data: Partial<NGO>) =>
+    api.patch<NGO>(`/ngo/ngos/${id}/`, data),
+  deleteNGO: (id: string) =>
+    api.delete(`/ngo/ngos/${id}/`),
+
+  // Government Office Management
+  updateGovOffice: (id: string, data: Partial<GovOffice>) =>
+    api.patch<GovOffice>(`/government/offices/${id}/`, data),
+  deleteGovOffice: (id: string) =>
+    api.delete(`/government/offices/${id}/`),
+
+  // Blood Donor Management
+  updateBloodDonor: (id: string, data: Partial<BloodDonor>) =>
+    api.patch<BloodDonor>(`/blood/donors/${id}/`, data),
+  deleteBloodDonor: (id: string) =>
+    api.delete(`/blood/donors/${id}/`),
 }
 

@@ -10,7 +10,7 @@ import {
   Menu as MenuIcon, Notifications, LocalHospital, Bloodtype,
   School, People, AccountBalance, SmartToy,
   Dashboard, Person, Logout, Emergency, Home, MedicalServices, LocalShipping,
-  ChevronRight, Shield, Phone,
+  ChevronRight, Shield, Phone, LocalPharmacy,
 } from '@mui/icons-material'
 import { useAuthStore, useNotificationStore } from '../../store/authStore'
 import { authApi } from '../../api/services'
@@ -19,6 +19,7 @@ import { useNotificationWS } from '../../hooks'
 const NAV_ITEMS = [
   { label: 'Services', path: '/services', icon: <MedicalServices /> },
   { label: 'Hospitals', path: '/hospitals', icon: <LocalHospital /> },
+  { label: 'Doctors', path: '/doctors', icon: <LocalPharmacy /> },
   { label: 'Blood', path: '/blood-donors', icon: <Bloodtype /> },
   { label: 'Education', path: '/education', icon: <School /> },
   { label: 'NGOs', path: '/ngo', icon: <People /> },

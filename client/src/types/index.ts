@@ -266,6 +266,24 @@ export interface Institution {
   distance_km: number | null
 }
 
+export interface EducationInstitution extends Institution {}
+
+export interface GovOffice {
+  id: string
+  name: string
+  office_type: string
+  address: string
+  latitude: number | null
+  longitude: number | null
+  phone: string
+  email: string
+  website: string
+  description: string
+  image_url: string
+  is_verified: boolean
+  distance_km: number | null
+}
+
 export interface NGO {
   id: string
   name: string

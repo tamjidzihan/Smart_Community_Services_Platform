@@ -1,27 +1,64 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
 import {
   Container, Typography, Box, Grid, Card, CardContent, TextField, Button, MenuItem,
-  Chip, Rating, CircularProgress, Alert, Paper, InputAdornment, Divider, Pagination
+  Chip, Rating, CircularProgress, Alert, Paper, InputAdornment, Divider, Pagination,
+  IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Stack,
+  FormControl, InputLabel, Select,
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import VerifiedIcon from '@mui/icons-material/Verified'
 import PhoneIcon from '@mui/icons-material/Phone'
+import EmailIcon from '@mui/icons-material/Email'
+import ViewModuleIcon from '@mui/icons-material/ViewModule'
+import ViewListIcon from '@mui/icons-material/ViewList'
 import AddIcon from '@mui/icons-material/Add'
-import { useQuery } from '@tanstack/react-query'
-import { servicesApi } from '../api/services'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { servicesApi, adminApi } from '../api/services'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import AdminAddEntityModal from '../components/admin/AdminAddEntityModal'
+import type { ServiceListing } from '../types'
 
 export default function ServicesPage() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [page, setPage] = useState(1)
   const [openAddModal, setOpenAddModal] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [editingService, setEditingService] = useState<ServiceListing | null>(null)
+  const [serviceToDelete, setServiceToDelete] = useState<ServiceListing | null>(null)
+
+  // Form states for edit dialog
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [address, setAddress] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [website, setWebsite] = useState('')
+  const [status, setStatus] = useState('active')
+  const [isVerified, setIsVerified] = useState(false)
+  const [isFeatured, setIsFeatured] = useState(false)
+  const [formError, setFormError] = useState('')
+
+  // Category form states
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryDesc, setNewCategoryDesc] = useState('')
+  const [categoryError, setCategoryError] = useState('')
 
   const { isAuthenticated, hasRole } = useAuthStore()
   const canAdd = isAuthenticated && (hasRole('admin') || hasRole('moderator') || hasRole('provider'))
+  const isAdmin = hasRole('admin') || hasRole('moderator')
+
+  // View mode state: 'grid' or 'list'
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -34,8 +71,8 @@ export default function ServicesPage() {
   const categoriesList = Array.isArray(categoriesData)
     ? categoriesData
     : Array.isArray((categoriesData as any)?.results)
-    ? (categoriesData as any).results
-    : []
+      ? (categoriesData as any).results
+      : []
 
   const { data: servicesData, isLoading, error } = useQuery({
     queryKey: ['services', search, category, page],
@@ -48,8 +85,111 @@ export default function ServicesPage() {
   const servicesList = Array.isArray(servicesData)
     ? servicesData
     : Array.isArray((servicesData as any)?.results)
-    ? (servicesData as any).results
-    : []
+      ? (servicesData as any).results
+      : []
+
+  // Mutations
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<ServiceListing> }) => adminApi.updateService(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      handleCloseEditDialog()
+    },
+    onError: (err: any) => {
+      setFormError(err.response?.data?.detail || err.message || 'Failed to update service')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: adminApi.deleteService,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] })
+      setDeleteConfirmOpen(false)
+      setServiceToDelete(null)
+    },
+  })
+
+  const createCategoryMutation = useMutation({
+    mutationFn: servicesApi.createCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setCategoryDialogOpen(false)
+      setNewCategoryName('')
+      setNewCategoryDesc('')
+      setCategoryError('')
+    },
+    onError: (err: any) => {
+      setCategoryError(err.response?.data?.detail || err.message || 'Failed to create category')
+    },
+  })
+
+  const handleOpenEdit = (service: any) => {
+    setEditingService(service)
+    setTitle(service.title)
+    setDescription(service.description)
+    setEditCategory(service.category)
+    setAddress(service.address)
+    setPhone(service.phone || '')
+    setEmail(service.email || '')
+    setWebsite(service.website || '')
+    setStatus(service.status)
+    setIsVerified(service.is_verified)
+    setIsFeatured(service.is_featured)
+    setFormError('')
+    setEditDialogOpen(true)
+  }
+
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false)
+    setEditingService(null)
+    setFormError('')
+  }
+
+  const handleOpenDeleteConfirm = (service: any) => {
+    setServiceToDelete(service)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (serviceToDelete) {
+      deleteMutation.mutate(serviceToDelete.id)
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError('')
+
+    if (!editingService) return
+
+    const payload: Partial<ServiceListing> = {
+      title,
+      description,
+      category: editCategory,
+      address,
+      phone,
+      email,
+      website,
+      status,
+      is_verified: isVerified,
+      is_featured: isFeatured,
+    }
+
+    updateMutation.mutate({ id: editingService.id, data: payload })
+  }
+
+  const handleCreateCategory = (e: React.FormEvent) => {
+    e.preventDefault()
+    setCategoryError('')
+    if (!newCategoryName.trim()) {
+      setCategoryError('Category name is required')
+      return
+    }
+    createCategoryMutation.mutate({
+      name: newCategoryName.trim(),
+      description: newCategoryDesc.trim() || undefined
+    })
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', py: 6, bgcolor: 'grey.50' }}>
@@ -75,6 +215,37 @@ export default function ServicesPage() {
               Add New Service
             </Button>
           )}
+
+          {isAdmin && (
+            <Button
+              variant="outlined"
+              startIcon={<AddIcon />}
+              onClick={() => setCategoryDialogOpen(true)}
+              sx={{ borderRadius: 3, px: 3, py: 1.2, fontWeight: 700 }}
+            >
+              Add Category
+            </Button>
+          )}
+          <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 0.5 }}>
+            <Tooltip title="Grid View">
+              <IconButton
+                size="small"
+                color={viewMode === 'grid' ? 'primary' : 'inherit'}
+                onClick={() => setViewMode('grid')}
+              >
+                <ViewModuleIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="List View">
+              <IconButton
+                size="small"
+                color={viewMode === 'list' ? 'primary' : 'inherit'}
+                onClick={() => setViewMode('list')}
+              >
+                <ViewListIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {/* Filter Card */}
@@ -139,9 +310,25 @@ export default function ServicesPage() {
                     <CardContent sx={{ flexGrow: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                         <Chip label={service.category_name || 'Service'} color="primary" size="small" variant="outlined" />
-                        {service.is_verified && (
-                          <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />
-                        )}
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          {service.is_verified && (
+                            <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />
+                          )}
+                          {isAdmin && (
+                            <>
+                              <Tooltip title="Edit Service">
+                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(service); }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Service">
+                                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(service); }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
                       </Box>
                       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1, textDecoration: 'none', color: 'inherit' }} component={Link} to={`/services/${service.id}`}>
                         {service.title}
@@ -210,6 +397,121 @@ export default function ServicesPage() {
         )}
 
         <AdminAddEntityModal open={openAddModal} onClose={() => setOpenAddModal(false)} initialTab={0} />
+
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="md" sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+          <form onSubmit={handleSubmit}>
+            <DialogTitle sx={{ fontWeight: 700 }}>Edit Service Information</DialogTitle>
+            <DialogContent dividers>
+              <Stack spacing={3} sx={{ mt: 1 }}>
+                {formError && <Alert severity="error">{formError}</Alert>}
+                <TextField variant="outlined" label="Service Title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth required />
+                <TextField variant="outlined" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} multiline rows={3} fullWidth required />
+                <FormControl fullWidth required>
+                  <InputLabel>Category</InputLabel>
+                  <Select value={editCategory} label="Category" onChange={(e) => setEditCategory(e.target.value)}>
+                    {categoriesList.map((cat: any) => (
+                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <TextField variant="outlined" label="Address" value={address} onChange={(e) => setAddress(e.target.value)} multiline rows={2} fullWidth required slotProps={{ input: { startAdornment: <LocationOnIcon sx={{ color: 'text.secondary', mr: 1, mt: 1, alignSelf: 'flex-start' }} /> } }} />
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField variant="outlined" label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth slotProps={{ input: { startAdornment: <PhoneIcon sx={{ color: 'text.secondary', mr: 1 }} /> } }} />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
+                    <TextField variant="outlined" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth slotProps={{ input: { startAdornment: <EmailIcon sx={{ color: 'text.secondary', mr: 1 }} /> } }} />
+                  </Grid>
+                </Grid>
+                <TextField variant="outlined" label="Website" value={website} onChange={(e) => setWebsite(e.target.value)} fullWidth placeholder="https://example.com" />
+                {isAdmin && (
+                  <>
+                    <FormControl fullWidth required>
+                      <InputLabel>Status</InputLabel>
+                      <Select value={status} label="Status" onChange={(e) => setStatus(e.target.value)}>
+                        <MenuItem value="active">Active</MenuItem>
+                        <MenuItem value="inactive">Inactive</MenuItem>
+                        <MenuItem value="pending">Pending Review</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth>
+                          <InputLabel>Verified</InputLabel>
+                          <Select value={isVerified ? 'yes' : 'no'} label="Verified" onChange={(e) => setIsVerified(e.target.value === 'yes')}>
+                            <MenuItem value="yes">Yes - Verified</MenuItem>
+                            <MenuItem value="no">No - Not Verified</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <FormControl fullWidth>
+                          <InputLabel>Featured</InputLabel>
+                          <Select value={isFeatured ? 'yes' : 'no'} label="Featured" onChange={(e) => setIsFeatured(e.target.value === 'yes')}>
+                            <MenuItem value="yes">Yes - Featured</MenuItem>
+                            <MenuItem value="no">No - Regular</MenuItem>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                  </>
+                )}
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5 }}>
+              <Button onClick={handleCloseEditDialog} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+              <Button type="submit" variant="contained" color="primary" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={updateMutation.isPending}>Save Changes</Button>
+            </DialogActions>
+          </form>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Confirm Deletion</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to delete <strong>{serviceToDelete?.title}</strong>? This action cannot be undone.</Typography>
+          </DialogContent>
+          <DialogActions sx={{ p: 2.5 }}>
+            <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+            <Button onClick={handleConfirmDelete} variant="contained" color="error" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={deleteMutation.isPending}>Delete</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Add Category Dialog */}
+        <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
+          <form onSubmit={handleCreateCategory}>
+            <DialogTitle sx={{ fontWeight: 700 }}>Add New Service Category</DialogTitle>
+            <DialogContent dividers>
+              <Stack spacing={3} sx={{ mt: 1 }}>
+                {categoryError && <Alert severity="error">{categoryError}</Alert>}
+                <TextField
+                  variant="outlined"
+                  label="Category Name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  fullWidth
+                  required
+                  placeholder="e.g., Healthcare, Education"
+                />
+                <TextField
+                  variant="outlined"
+                  label="Description (Optional)"
+                  value={newCategoryDesc}
+                  onChange={(e) => setNewCategoryDesc(e.target.value)}
+                  multiline
+                  rows={2}
+                  fullWidth
+                  placeholder="Brief description of this category"
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ p: 2.5 }}>
+              <Button onClick={() => setCategoryDialogOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
+              <Button type="submit" variant="contained" color="primary" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={createCategoryMutation.isPending}>Create Category</Button>
+            </DialogActions>
+          </form>
+        </Dialog>
       </Container>
     </Box>
   )

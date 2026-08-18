@@ -1,14 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
 import {
   Container, Typography, Box, Grid, Card, CardContent, TextField, Button, MenuItem,
   Chip, Avatar, Paper, CircularProgress, Alert, Divider, Dialog, DialogTitle, DialogContent,
-  DialogActions, FormControlLabel, Checkbox
+  DialogActions, FormControlLabel, Checkbox, Tooltip, IconButton
 } from '@mui/material'
 import WaterDropIcon from '@mui/icons-material/WaterDrop'
 import PhoneIcon from '@mui/icons-material/Phone'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import FavoriteIcon from '@mui/icons-material/Favorite'
 import MyLocationIcon from '@mui/icons-material/MyLocation'
+import ViewModuleIcon from '@mui/icons-material/ViewModule'
+import ViewListIcon from '@mui/icons-material/ViewList'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { bloodApi } from '../api/services'
 import { Link, useNavigate } from 'react-router-dom'
@@ -39,6 +42,9 @@ export default function BloodDonorsPage() {
   const { isAuthenticated, user } = useAuthStore()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // View mode state: 'grid' or 'list'
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   const { data: donorsData, isLoading, error } = useQuery({
     queryKey: ['blood-donors', bloodGroup, radius],
@@ -145,6 +151,26 @@ export default function BloodDonorsPage() {
               Request Blood Urgently
             </Button>
           </Box>
+          <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 0.5 }}>
+            <Tooltip title="Grid View">
+              <IconButton
+                size="small"
+                color={viewMode === 'grid' ? 'error' : 'inherit'}
+                onClick={() => setViewMode('grid')}
+              >
+                <ViewModuleIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="List View">
+              <IconButton
+                size="small"
+                color={viewMode === 'list' ? 'error' : 'inherit'}
+                onClick={() => setViewMode('list')}
+              >
+                <ViewListIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
 
         {regSuccess && (
@@ -202,50 +228,104 @@ export default function BloodDonorsPage() {
         )}
 
         {donorsData && (
-          <Grid container spacing={3}>
-            {donorsData.results.map((donor) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={donor.id}>
-                <Card sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent sx={{ textAlign: 'center' }}>
-                    <Avatar sx={{ width: 64, height: 64, mx: 'auto', mb: 2, bgcolor: 'error.main', fontSize: 24, fontWeight: 800 }}>
-                      {donor.blood_group}
-                    </Avatar>
+          viewMode === 'grid' ? (
+            <Grid container spacing={3}>
+              {donorsData.results.map((donor) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={donor.id}>
+                  <Card sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
+                    <CardContent sx={{ textAlign: 'center' }}>
+                      <Avatar sx={{ width: 64, height: 64, mx: 'auto', mb: 2, bgcolor: 'error.main', fontSize: 24, fontWeight: 800 }}>
+                        {donor.blood_group}
+                      </Avatar>
 
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      {donor.full_name || 'Anonymous Donor'}
-                    </Typography>
-
-                    <Chip
-                      label={donor.is_available ? 'Available Now' : 'Recently Donated'}
-                      color={donor.is_available ? 'success' : 'default'}
-                      size="small"
-                      sx={{ my: 1 }}
-                    />
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
-                      <PhoneIcon fontSize="small" color="action" />
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {donor.phone || '+8801700000000'}
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        {donor.full_name || 'Anonymous Donor'}
                       </Typography>
-                    </Box>
 
-                    {donor.distance_km != null && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                        <LocationOnIcon fontSize="small" color="action" />
-                        <Typography variant="caption" color="text.secondary">
-                          {donor.distance_km} km away
+                      <Chip
+                        label={donor.is_available ? 'Available Now' : 'Recently Donated'}
+                        color={donor.is_available ? 'success' : 'default'}
+                        size="small"
+                        sx={{ my: 1 }}
+                      />
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                        <PhoneIcon fontSize="small" color="action" />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {donor.phone || '+8801700000000'}
                         </Typography>
                       </Box>
-                    )}
+
+                      {donor.distance_km != null && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
+                          <LocationOnIcon fontSize="small" color="action" />
+                          <Typography variant="caption" color="text.secondary">
+                            {donor.distance_km} km away
+                          </Typography>
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+
+              {donorsData.results.length === 0 && !isLoading && (
+                <Grid size={{ xs: 12 }}>
+                  <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+                    <Typography variant="h6" color="text.secondary">
+                      No active blood donors found for group {bloodGroup} within {radius} km.
+                    </Typography>
+                    <Button variant="outlined" color="error" component={Link} to="/blood-request" sx={{ mt: 2 }}>
+                      Post an Emergency Blood Request
+                    </Button>
+                  </Paper>
+                </Grid>
+              )}
+            </Grid>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {donorsData.results.map((donor) => (
+                <Card key={donor.id} sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                      <Avatar sx={{ width: 60, height: 60, bgcolor: 'error.main', fontSize: 22, fontWeight: 800, flexShrink: 0 }}>
+                        {donor.blood_group}
+                      </Avatar>
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {donor.full_name || 'Anonymous Donor'}
+                          </Typography>
+                          <Chip
+                            label={donor.is_available ? 'Available Now' : 'Recently Donated'}
+                            color={donor.is_available ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <PhoneIcon fontSize="small" color="action" />
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {donor.phone || '+8801700000000'}
+                            </Typography>
+                          </Box>
+                          {donor.distance_km != null && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <LocationOnIcon fontSize="small" color="action" />
+                              <Typography variant="caption" color="text.secondary">
+                                {donor.distance_km} km away
+                              </Typography>
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                    </Box>
                   </CardContent>
                 </Card>
-              </Grid>
-            ))}
-
-            {donorsData.results.length === 0 && !isLoading && (
-              <Grid size={{ xs: 12 }}>
+              ))}
+              {donorsData.results.length === 0 && !isLoading && (
                 <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
                   <Typography variant="h6" color="text.secondary">
                     No active blood donors found for group {bloodGroup} within {radius} km.
@@ -254,9 +334,9 @@ export default function BloodDonorsPage() {
                     Post an Emergency Blood Request
                   </Button>
                 </Paper>
-              </Grid>
-            )}
-          </Grid>
+              )}
+            </Box>
+          )
         )}
 
         {/* DETAILED DONOR REGISTRATION DIALOG */}
