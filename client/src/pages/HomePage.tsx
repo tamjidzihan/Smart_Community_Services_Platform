@@ -62,7 +62,7 @@ export default function HomePage() {
               <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
                 <Chip label="🚀 AI-Powered Community Platform" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white', mb: 3 }} />
                 <Typography variant="h2" sx={{ fontWeight: 800, lineHeight: 1.2, mb: 2, fontSize: { xs: '2rem', md: '3rem' } }}>
-                  Tupas Your City's Services,{' '}
+                  Your City's Services,{' '}
                   <Box component="span" sx={{ color: '#60A5FA' }}>One Platform</Box>
                 </Typography>
                 <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 18, mb: 4, maxWidth: 520 }}>
