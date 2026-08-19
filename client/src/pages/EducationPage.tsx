@@ -211,168 +211,340 @@ export default function EducationPage() {
         {educationData && (
           viewMode === 'grid' ? (
             <Grid container spacing={3}>
-            {educationData.results.map((inst) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={inst.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                      <Chip label={inst.institution_type || 'Academic'} color="primary" size="small" variant="outlined" />
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {inst.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
-                        {isAdmin && (
-                          <>
-                            <Tooltip title="Edit Institution">
-                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(inst); }}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Institution">
-                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(inst); }}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </Box>
-                    </Box>
-
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                      {inst.name}
-                    </Typography>
-
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {inst.description || 'Recognized educational institution providing modern curriculum and campus facilities.'}
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <LocationOnIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {inst.address}
-                      </Typography>
-                    </Box>
-
-                    {inst.phone && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <PhoneIcon fontSize="small" color="action" />
-                        <Typography variant="caption" color="text.secondary">
-                          {inst.phone}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    <Box sx={{ mt: 2 }}>
-                      {inst.admission_open ? (
-                        <Chip label="Admissions Open" color="success" size="small" sx={{ fontWeight: 700 }} />
-                      ) : (
-                        <Chip label="Admissions Closed" color="default" size="small" />
-                      )}
-                    </Box>
-                  </CardContent>
-
-                  <Box sx={{ p: 2, pt: 0 }}>
-                    {inst.website ? (
-                      <Button fullWidth variant="contained" component="a" href={inst.website} target="_blank" startIcon={<LanguageIcon />} sx={{ borderRadius: 2 }}>
-                        Visit Official Portal
-                      </Button>
-                    ) : (
-                      <Button fullWidth variant="outlined" disabled sx={{ borderRadius: 2 }}>
-                        Info Portal Unavailable
-                      </Button>
-                    )}
-                  </Box>
-                </Card>
-              </Grid>
-            ))}
-
-            {educationData.results.length === 0 && !isLoading && (
-              <Grid size={12}>
-                <Typography variant="h6" color="text.secondary" align="center" sx={{ py: 6 }}>
-                  No educational institutions found matching your search.
-                </Typography>
-              </Grid>
-            )}
-            </Grid>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {educationData.results.map((inst) => (
-                <Card key={inst.id} sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={inst.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                         <Chip label={inst.institution_type || 'Academic'} color="primary" size="small" variant="outlined" />
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                          {inst.name}
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          {inst.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
+                          {isAdmin && (
+                            <>
+                              <Tooltip title="Edit Institution">
+                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(inst); }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Institution">
+                                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(inst); }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                        {inst.name}
+                      </Typography>
+
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {inst.description || 'Recognized educational institution providing modern curriculum and campus facilities.'}
+                      </Typography>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <LocationOnIcon fontSize="small" color="action" />
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {inst.address}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {inst.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
-                        {isAdmin && (
-                          <>
-                            <Tooltip title="Edit Institution">
-                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(inst); }}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Institution">
-                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(inst); }}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
+
+                      {inst.phone && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <PhoneIcon fontSize="small" color="action" />
+                          <Typography variant="caption" color="text.secondary">
+                            {inst.phone}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      <Box sx={{ mt: 2 }}>
+                        {inst.admission_open ? (
+                          <Chip label="Admissions Open" color="success" size="small" sx={{ fontWeight: 700 }} />
+                        ) : (
+                          <Chip label="Admissions Closed" color="default" size="small" />
                         )}
                       </Box>
-                    </Box>
+                    </CardContent>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {inst.description || 'Recognized educational institution providing modern curriculum and campus facilities.'}
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <LocationOnIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {inst.address}
-                      </Typography>
-                    </Box>
-
-                    {inst.phone && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <PhoneIcon fontSize="small" color="action" />
-                        <Typography variant="caption" color="text.secondary">
-                          {inst.phone}
-                        </Typography>
-                      </Box>
-                    )}
-
-                    <Box sx={{ mt: 2 }}>
-                      {inst.admission_open ? (
-                        <Chip label="Admissions Open" color="success" size="small" sx={{ fontWeight: 700 }} />
-                      ) : (
-                        <Chip label="Admissions Closed" color="default" size="small" />
-                      )}
-                    </Box>
-
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2, mt: 2, borderTop: 1, borderColor: 'divider' }}>
+                    <Box sx={{ p: 2, pt: 0 }}>
                       {inst.website ? (
-                        <Button variant="contained" component="a" href={inst.website} target="_blank" startIcon={<LanguageIcon />} sx={{ borderRadius: 2 }}>
+                        <Button fullWidth variant="contained" component="a" href={inst.website} target="_blank" startIcon={<LanguageIcon />} sx={{ borderRadius: 2 }}>
                           Visit Official Portal
                         </Button>
                       ) : (
-                        <Button variant="outlined" disabled sx={{ borderRadius: 2 }}>
+                        <Button fullWidth variant="outlined" disabled sx={{ borderRadius: 2 }}>
                           Info Portal Unavailable
+                        </Button>
+                      )}
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+
+              {educationData.results.length === 0 && !isLoading && (
+                <Grid size={12}>
+                  <Typography variant="h6" color="text.secondary" align="center" sx={{ py: 6 }}>
+                    No educational institutions found matching your search.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {educationData.results.map((inst) => (
+                <Card
+                  key={inst.id}
+                  sx={{
+                    borderRadius: 3,
+                    transition: '0.3s',
+                    '&:hover': {
+                      boxShadow: 6,
+                      transform: 'translateY(-2px)'
+                    },
+                    overflow: 'hidden'
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    {/* Header Section */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      mb: 1.5
+                    }}>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        flexWrap: 'wrap'
+                      }}>
+                        <Chip
+                          label={inst.institution_type || 'Academic'}
+                          color="primary"
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontWeight: 600,
+                            '& .MuiChip-label': { px: 1.5 }
+                          }}
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                          {inst.name}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{
+                        display: 'flex',
+                        gap: 0.5,
+                        alignItems: 'center',
+                        flexShrink: 0
+                      }}>
+                        {inst.is_verified && (
+                          <Chip
+                            icon={<VerifiedIcon sx={{ fontSize: 16 }} />}
+                            label="Verified"
+                            color="success"
+                            size="small"
+                            sx={{ fontWeight: 600 }}
+                          />
+                        )}
+                        {isAdmin && (
+                          <>
+                            <Tooltip title="Edit Institution">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(inst);
+                                }}
+                                sx={{
+                                  '&:hover': { backgroundColor: 'primary.light', color: 'primary.dark' }
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Institution">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDeleteConfirm(inst);
+                                }}
+                                sx={{
+                                  '&:hover': { backgroundColor: 'error.light', color: 'error.dark' }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Box>
+                    </Box>
+
+                    {/* Description */}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 2,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.6
+                      }}
+                    >
+                      {inst.description || 'Recognized educational institution providing modern curriculum and campus facilities.'}
+                    </Typography>
+
+                    <Divider sx={{ my: 2 }} />
+
+                    {/* Contact Info */}
+                    <Box sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1,
+                      mb: 2
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <LocationOnIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          {inst.address}
+                        </Typography>
+                      </Box>
+
+                      {inst.phone && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <PhoneIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {inst.phone}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Admission Status */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      mb: 2.5,
+                      py: 1,
+                      px: 1.5,
+                      bgcolor: 'action.hover',
+                      borderRadius: 2
+                    }}>
+                      {inst.admission_open ? (
+                        <Chip
+                          label="Admissions Open"
+                          color="success"
+                          size="medium"
+                          sx={{
+                            fontWeight: 700,
+                            '& .MuiChip-label': { px: 2 }
+                          }}
+                        />
+                      ) : (
+                        <Chip
+                          label="Admissions Closed"
+                          color="default"
+                          size="medium"
+                          sx={{
+                            fontWeight: 600,
+                            '& .MuiChip-label': { px: 2 }
+                          }}
+                        />
+                      )}
+                      {inst.admission_open && (
+                        <Typography variant="caption" color="success.dark" sx={{ fontWeight: 600 }}>
+                          Apply now for the upcoming academic year
+                        </Typography>
+                      )}
+                    </Box>
+
+                    {/* Action Button */}
+                    <Box sx={{
+                      display: 'flex',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                      pt: 2,
+                      borderTop: 1,
+                      borderColor: 'divider'
+                    }}>
+                      {inst.website ? (
+                        <Button
+                          variant="contained"
+                          component="a"
+                          href={inst.website}
+                          target="_blank"
+                          startIcon={<LanguageIcon />}
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            px: 3,
+                            boxShadow: 2,
+                            '&:hover': { boxShadow: 4 }
+                          }}
+                        >
+                          Visit Official Portal
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outlined"
+                          disabled
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600
+                          }}
+                        >
+                          Info Portal Unavailable
+                        </Button>
+                      )}
+
+                      {/* Optional: Add a secondary action button */}
+                      {inst.admission_open && inst.website && (
+                        <Button
+                          variant="outlined"
+                          sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600
+                          }}
+                        >
+                          Learn More
                         </Button>
                       )}
                     </Box>
                   </CardContent>
                 </Card>
               ))}
+
               {educationData.results.length === 0 && !isLoading && (
-                <Typography variant="h6" color="text.secondary" align="center" sx={{ py: 6 }}>
-                  No educational institutions found matching your search.
-                </Typography>
+                <Box sx={{
+                  py: 8,
+                  textAlign: 'center',
+                  bgcolor: 'action.hover',
+                  borderRadius: 3
+                }}>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No educational institutions found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Try adjusting your search filters or check back later for new listings.
+                  </Typography>
+                </Box>
               )}
             </Box>
           )

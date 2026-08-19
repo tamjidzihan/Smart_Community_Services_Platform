@@ -234,88 +234,157 @@ export default function NGOPage() {
         {ngoData && (
           viewMode === 'grid' ? (
             <Grid container spacing={3}>
-            {ngoData.results.map((ngo) => (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={ngo.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                      <Chip label="Verified NGO" color="primary" size="small" variant="outlined" />
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {ngo.is_verified && <Chip icon={<VerifiedIcon />} label="Certified" color="success" size="small" />}
-                        {isAdmin && (
-                          <>
-                            <Tooltip title="Edit NGO">
-                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(ngo); }}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete NGO">
-                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(ngo); }}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
+              {ngoData.results.map((ngo) => (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={ngo.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                        <Chip label="Verified NGO" color="primary" size="small" variant="outlined" />
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          {ngo.is_verified && <Chip icon={<VerifiedIcon />} label="Certified" color="success" size="small" />}
+                          {isAdmin && (
+                            <>
+                              <Tooltip title="Edit NGO">
+                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(ngo); }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete NGO">
+                                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(ngo); }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
                       </Box>
-                    </Box>
 
-                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                      {ngo.name}
-                    </Typography>
-
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                      {ngo.description || 'Non-profit organization dedicated to community development and humanitarian support.'}
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <LocationOnIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {ngo.address}
+                      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                        {ngo.name}
                       </Typography>
-                    </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <GroupsIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary">
-                        Active Volunteers: <strong>{ngo.volunteer_count || 24}</strong>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {ngo.description || 'Non-profit organization dedicated to community development and humanitarian support.'}
                       </Typography>
-                    </Box>
-                  </CardContent>
 
-                  <Box sx={{ p: 2, pt: 0 }}>
-                    <Button fullWidth variant="outlined" onClick={handleOpenRegister} sx={{ borderRadius: 2 }}>
-                      Join Initiatives
-                    </Button>
-                  </Box>
-                </Card>
-              </Grid>
-            ))}
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <LocationOnIcon fontSize="small" color="action" />
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {ngo.address}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <GroupsIcon fontSize="small" color="action" />
+                        <Typography variant="caption" color="text.secondary">
+                          Active Volunteers: <strong>{ngo.volunteer_count || 24}</strong>
+                        </Typography>
+                      </Box>
+                    </CardContent>
+
+                    <Box sx={{ p: 2, pt: 0 }}>
+                      <Button fullWidth variant="outlined" onClick={handleOpenRegister} sx={{ borderRadius: 2 }}>
+                        Join Initiatives
+                      </Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
             </Grid>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {ngoData.results.map((ngo) => (
-                <Card key={ngo.id} sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Chip label="Verified NGO" color="primary" size="small" variant="outlined" />
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                <Card
+                  key={ngo.id}
+                  sx={{
+                    borderRadius: 3,
+                    transition: '0.3s',
+                    '&:hover': {
+                      boxShadow: 6,
+                      transform: 'translateY(-2px)'
+                    },
+                    overflow: 'hidden'
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    {/* Header Section */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      mb: 1.5
+                    }}>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        flexWrap: 'wrap'
+                      }}>
+                        <Chip
+                          label="NGO"
+                          color="primary"
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            fontWeight: 600,
+                            '& .MuiChip-label': { px: 1.5 }
+                          }}
+                        />
+                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                           {ngo.name}
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {ngo.is_verified && <Chip icon={<VerifiedIcon />} label="Certified" color="success" size="small" />}
+
+                      <Box sx={{
+                        display: 'flex',
+                        gap: 0.5,
+                        alignItems: 'center',
+                        flexShrink: 0
+                      }}>
+                        {ngo.is_verified && (
+                          <Chip
+                            icon={<VerifiedIcon sx={{ fontSize: 16 }} />}
+                            label="Certified"
+                            color="success"
+                            size="small"
+                            sx={{
+                              fontWeight: 600,
+                              '& .MuiChip-label': { px: 1.5 }
+                            }}
+                          />
+                        )}
                         {isAdmin && (
                           <>
                             <Tooltip title="Edit NGO">
-                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(ngo); }}>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(ngo);
+                                }}
+                                sx={{
+                                  '&:hover': { backgroundColor: 'primary.light', color: 'primary.dark' }
+                                }}
+                              >
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Delete NGO">
-                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(ngo); }}>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDeleteConfirm(ngo);
+                                }}
+                                sx={{
+                                  '&:hover': { backgroundColor: 'error.light', color: 'error.dark' }
+                                }}
+                              >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
@@ -324,34 +393,105 @@ export default function NGOPage() {
                       </Box>
                     </Box>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {/* Description */}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 2.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.6
+                      }}
+                    >
                       {ngo.description || 'Non-profit organization dedicated to community development and humanitarian support.'}
                     </Typography>
 
-                    <Divider sx={{ my: 1.5 }} />
+                    <Divider sx={{ my: 2 }} />
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <LocationOnIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {ngo.address}
-                      </Typography>
+                    {/* Info Grid */}
+                    <Box sx={{
+                      display: 'grid',
+                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                      gap: 2,
+                      mb: 2.5
+                    }}>
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        py: 1,
+                        px: 1.5,
+                        bgcolor: 'action.hover',
+                        borderRadius: 2
+                      }}>
+                        <LocationOnIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary" noWrap>
+                          {ngo.address}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        py: 1,
+                        px: 1.5,
+                        bgcolor: 'action.hover',
+                        borderRadius: 2
+                      }}>
+                        <GroupsIcon fontSize="small" color="action" />
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>{ngo.volunteer_count || 24}</strong> Active Volunteers
+                        </Typography>
+                      </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <GroupsIcon fontSize="small" color="action" />
-                      <Typography variant="caption" color="text.secondary">
-                        Active Volunteers: <strong>{ngo.volunteer_count || 24}</strong>
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2, mt: 2, borderTop: 1, borderColor: 'divider' }}>
-                      <Button variant="outlined" onClick={handleOpenRegister} sx={{ borderRadius: 2 }}>
+                    {/* Action Buttons */}
+                    <Box sx={{
+                      display: 'flex',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                      pt: 2,
+                      borderTop: 1,
+                      borderColor: 'divider'
+                    }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleOpenRegister}
+                        sx={{
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          px: 3,
+                          boxShadow: 2,
+                          '&:hover': { boxShadow: 4 }
+                        }}
+                      >
                         Join Initiatives
                       </Button>
                     </Box>
                   </CardContent>
                 </Card>
               ))}
+
+              {ngoData.results.length === 0 && !isLoading && (
+                <Box sx={{
+                  py: 8,
+                  textAlign: 'center',
+                  bgcolor: 'action.hover',
+                  borderRadius: 3
+                }}>
+                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                    No NGOs found
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Check back later for new organizations or adjust your search criteria.
+                  </Typography>
+                </Box>
+              )}
             </Box>
           )
         )}

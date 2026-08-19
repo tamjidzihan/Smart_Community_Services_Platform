@@ -50,7 +50,7 @@ export default function HospitalsPage() {
 
   const { isAuthenticated, hasRole } = useAuthStore()
   const canAdd = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
-  const isAdmin = hasRole('admin') || hasRole('moderator')
+  const canEdit = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
 
   // View mode state: 'grid' or 'list'
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -237,179 +237,304 @@ export default function HospitalsPage() {
         {hospitalsData && (
           viewMode === 'grid' ? (
             <Grid container spacing={3}>
-            {hospitalsData.results.map((hospital) => (
-              <Grid size={{ xs: 12, md: 6 }} key={hospital.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <LocalHospitalIcon color="primary" />
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                          {hospital.name}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {hospital.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
-                        {isAdmin && (
-                          <>
-                            <Tooltip title="Edit Hospital">
-                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(hospital); }}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Hospital">
-                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(hospital); }}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </Box>
-                    </Box>
-
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {hospital.description || 'Full-service medical center with emergency care and specialist departments.'}
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Grid container spacing={1} sx={{ mb: 2 }}>
-                      <Grid size={{ xs: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <LocationOnIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary" noWrap>
-                            {hospital.address}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PhoneIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary">
-                            {hospital.phone || '24/7 Helpline'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HotelIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary">
-                            Beds: <strong>{hospital.available_beds || 0}</strong> / {hospital.bed_count || 0} available
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        {hospital.emergency_available ? (
-                          <Chip label="24/7 Emergency" color="error" size="small" sx={{ fontWeight: 700 }} />
-                        ) : (
-                          <Chip label="Standard Hours" color="default" size="small" />
-                        )}
-                      </Grid>
-                    </Grid>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                      <Rating value={hospital.average_rating || 4.5} precision={0.5} readOnly size="small" />
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                        {hospital.average_rating || 4.5} ({hospital.doctors_count || 12} Doctors)
-                      </Typography>
-                    </Box>
-                  </CardContent>
-
-                  <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2 }}>
-                    <Button fullWidth variant="contained" component={Link} to={`/hospitals/${hospital.id}`} sx={{ borderRadius: 2 }}>
-                      Hospital Details
-                    </Button>
-                    <Button fullWidth variant="outlined" component={Link} to={`/doctors?hospital=${hospital.id}`} sx={{ borderRadius: 2 }}>
-                      Find Doctors
-                    </Button>
-                  </Box>
-                </Card>
-              </Grid>
-            ))}
-            </Grid>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {hospitalsData.results.map((hospital) => (
-                <Card key={hospital.id} sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap' }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <LocalHospitalIcon color="primary" />
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                          {hospital.name}
+                <Grid size={{ xs: 12, md: 6 }} key={hospital.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LocalHospitalIcon color="primary" />
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {hospital.name}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          {hospital.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
+                          {canEdit && (
+                            <>
+                              <Tooltip title="Edit Hospital">
+                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(hospital); }}>
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Hospital">
+                                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(hospital); }}>
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {hospital.description || 'Full-service medical center with emergency care and specialist departments.'}
+                      </Typography>
+
+                      <Divider sx={{ my: 1.5 }} />
+
+                      <Grid container spacing={1} sx={{ mb: 2 }}>
+                        <Grid size={{ xs: 6 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <LocationOnIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {hospital.address}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <PhoneIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              {hospital.phone || '24/7 Helpline'}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <HotelIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              Beds: <strong>{hospital.available_beds || 0}</strong> / {hospital.bed_count || 0} available
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid size={{ xs: 6 }}>
+                          {hospital.emergency_available ? (
+                            <Chip label="24/7 Emergency" color="error" size="small" sx={{ fontWeight: 700 }} />
+                          ) : (
+                            <Chip label="Standard Hours" color="default" size="small" />
+                          )}
+                        </Grid>
+                      </Grid>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                        <Rating value={hospital.average_rating || 4.5} precision={0.5} readOnly size="small" />
+                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                          {hospital.average_rating || 4.5} ({hospital.doctors_count || 12} Doctors)
                         </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                        {hospital.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
-                        {isAdmin && (
-                          <>
-                            <Tooltip title="Edit Hospital">
-                              <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(hospital); }}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Hospital">
-                              <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(hospital); }}>
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </Box>
-                    </Box>
+                    </CardContent>
 
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      {hospital.description || 'Full-service medical center with emergency care and specialist departments.'}
-                    </Typography>
-
-                    <Divider sx={{ my: 1.5 }} />
-
-                    <Grid container spacing={1} sx={{ mb: 2 }}>
-                      <Grid size={{ xs: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <LocationOnIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary" noWrap>
-                            {hospital.address}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PhoneIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary">
-                            {hospital.phone || '24/7 Helpline'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HotelIcon fontSize="small" color="action" />
-                          <Typography variant="caption" color="text.secondary">
-                            Beds: <strong>{hospital.available_beds || 0}</strong> / {hospital.bed_count || 0} available
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 6 }}>
-                        {hospital.emergency_available ? (
-                          <Chip label="24/7 Emergency" color="error" size="small" sx={{ fontWeight: 700 }} />
-                        ) : (
-                          <Chip label="Standard Hours" color="default" size="small" />
-                        )}
-                      </Grid>
-                    </Grid>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                      <Rating value={hospital.average_rating || 4.5} precision={0.5} readOnly size="small" />
-                      <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                        {hospital.average_rating || 4.5} ({hospital.doctors_count || 12} Doctors)
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2, mt: 2, borderTop: 1, borderColor: 'divider' }}>
-                      <Button variant="contained" component={Link} to={`/hospitals/${hospital.id}`} sx={{ borderRadius: 2 }}>
+                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2 }}>
+                      <Button fullWidth variant="contained" component={Link} to={`/hospitals/${hospital.id}`} sx={{ borderRadius: 2 }}>
                         Hospital Details
                       </Button>
-                      <Button variant="outlined" component={Link} to={`/doctors?hospital=${hospital.id}`} sx={{ borderRadius: 2 }}>
+                      <Button fullWidth variant="outlined" component={Link} to={`/doctors?hospital=${hospital.id}`} sx={{ borderRadius: 2 }}>
+                        Find Doctors
+                      </Button>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {hospitalsData.results.map((hospital) => (
+                <Card
+                  key={hospital.id}
+                  sx={{
+                    borderRadius: 3,
+                    transition: '0.2s',
+                    '&:hover': {
+                      boxShadow: 6,
+                      transform: 'translateY(-2px)'
+                    },
+                    overflow: 'hidden'
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    {/* Header Section */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: 2,
+                      mb: 1.5
+                    }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <LocalHospitalIcon color="primary" sx={{ fontSize: 28 }} />
+                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                          {hospital.name}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{
+                        display: 'flex',
+                        gap: 1,
+                        alignItems: 'center',
+                        flexShrink: 0
+                      }}>
+                        {hospital.is_verified && (
+                          <Chip
+                            icon={<VerifiedIcon sx={{ fontSize: 16 }} />}
+                            label="Verified"
+                            color="success"
+                            size="small"
+                            sx={{ fontWeight: 600 }}
+                          />
+                        )}
+                        {canEdit && (
+                          <>
+                            <Tooltip title="Edit Hospital">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEdit(hospital);
+                                }}
+                                sx={{
+                                  '&:hover': { backgroundColor: 'primary.light', color: 'primary.dark' }
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Hospital">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenDeleteConfirm(hospital);
+                                }}
+                                sx={{
+                                  '&:hover': { backgroundColor: 'error.light', color: 'error.dark' }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
+                      </Box>
+                    </Box>
+
+                    {/* Description */}
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{
+                        mb: 2,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      {hospital.description || 'Full-service medical center with emergency care and specialist departments.'}
+                    </Typography>
+
+                    <Divider sx={{ my: 2 }} />
+
+                    {/* Info Grid */}
+                    <Grid container spacing={2} sx={{ mb: 2 }}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LocationOnIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary" noWrap>
+                            {hospital.address}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <PhoneIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            {hospital.phone || '24/7 Helpline'}
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <HotelIcon fontSize="small" color="action" />
+                          <Typography variant="body2" color="text.secondary">
+                            <strong>{hospital.available_beds || 0}</strong> / {hospital.bed_count || 0} beds available
+                          </Typography>
+                        </Box>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                          {hospital.emergency_available ? (
+                            <Chip
+                              label="24/7 Emergency"
+                              color="error"
+                              size="small"
+                              sx={{
+                                fontWeight: 700,
+                                '& .MuiChip-label': { px: 1.5 }
+                              }}
+                            />
+                          ) : (
+                            <Chip
+                              label="Standard Hours"
+                              color="default"
+                              size="small"
+                            />
+                          )}
+                        </Box>
+                      </Grid>
+                    </Grid>
+
+                    {/* Rating Section */}
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1.5,
+                      mb: 2,
+                      py: 1,
+                      px: 1.5,
+                      bgcolor: 'action.hover',
+                      borderRadius: 2
+                    }}>
+                      <Rating
+                        value={hospital.average_rating || 4.5}
+                        precision={0.5}
+                        readOnly
+                        size="small"
+                      />
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {hospital.average_rating || 4.5}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ({hospital.doctors_count || 12} Doctors)
+                      </Typography>
+                    </Box>
+
+                    {/* Action Buttons */}
+                    <Box sx={{
+                      display: 'flex',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                      pt: 2,
+                      borderTop: 1,
+                      borderColor: 'divider'
+                    }}>
+                      <Button
+                        variant="contained"
+                        component={Link}
+                        to={`/hospitals/${hospital.id}`}
+                        sx={{
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          px: 3
+                        }}
+                      >
+                        Hospital Details
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        component={Link}
+                        to={`/doctors?hospital=${hospital.id}`}
+                        sx={{
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          px: 3
+                        }}
+                      >
                         Find Doctors
                       </Button>
                     </Box>
@@ -449,7 +574,7 @@ export default function HospitalsPage() {
                     <TextField variant="outlined" label="Available Beds" type="number" value={availableBeds} onChange={(e) => setAvailableBeds(e.target.value)} fullWidth />
                   </Grid>
                 </Grid>
-                {isAdmin && (
+                {canEdit && (
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, sm: 6 }}>
                       <FormControl fullWidth>
