@@ -26,6 +26,7 @@ daphne==4.2.2
 defusedxml==0.7.1
 distro==1.9.0
 Django==5.0.9
+dj-database-url==2.1.0
 django-celery-beat==2.6.0
 django-celery-results==2.5.1
 django-cloudinary-storage==0.3.0
