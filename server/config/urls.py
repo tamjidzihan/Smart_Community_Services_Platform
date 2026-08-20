@@ -1,8 +1,44 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+# Add this health check view
+def health_check(request):
+    return JsonResponse({
+        "status": "healthy",
+        "service": "SCSP API",
+        "version": "1.0.0"
+    })
+
+def root_view(request):
+    return JsonResponse({
+        "message": "Welcome to Smart Community Services Platform API",
+        "docs": "/api/docs/",
+        "admin": "/admin/",
+        "endpoints": {
+            "auth": "/api/v1/auth/",
+            "services": "/api/v1/services/",
+            "healthcare": "/api/v1/healthcare/",
+            "blood": "/api/v1/blood/",
+            "ambulance": "/api/v1/ambulance/",
+            "education": "/api/v1/education/",
+            "ngo": "/api/v1/ngo/",
+            "government": "/api/v1/government/",
+            "reviews": "/api/v1/reviews/",
+            "notifications": "/api/v1/notifications/",
+            "ai": "/api/v1/ai/",
+            "analytics": "/api/v1/analytics/",
+        }
+    })
+
 urlpatterns = [
+    # Root and health check
+    path('', root_view, name='root'),
+    path('health/', health_check, name='health_check'),
+    path('healthz/', health_check, name='healthz'),
+    
+    # Admin
     path('admin/', admin.site.urls),
 
     # API v1
