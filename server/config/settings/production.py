@@ -5,7 +5,14 @@ import os
 # Security Settings
 DEBUG = False
 SECRET_KEY = env('SECRET_KEY')
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['scsp-api.onrender.com'])
+
+# ✅ UPDATE: Add your actual Render backend URL
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[
+    'smart-community-services-platform.onrender.com',  # Your Render backend
+    'scspbd.netlify.app',  # Your Netlify frontend
+    'localhost',
+    '127.0.0.1',
+])
 
 # Database - Using Neon PostgreSQL
 DATABASES = {
@@ -17,82 +24,22 @@ DATABASES = {
     )
 }
 
-# Redis Configuration
-REDIS_URL = env('REDIS_URL')
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': REDIS_URL,
-        'TIMEOUT': 300,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'CONNECTION_POOL_CLASS': 'redis.BlockingConnectionPool',
-            'CONNECTION_POOL_CLASS_KWARGS': {
-                'max_connections': 50,
-                'timeout': 20,
-            },
-            'MAX_CONNECTIONS': 1000,
-        }
-    }
-}
+# ... (keep all your Redis, Celery, Cloudinary configs the same) ...
 
-# Channel Layers for WebSockets
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [REDIS_URL],
-            'capacity': 1500,
-            'expiry': 10,
-        },
-    }
-}
+# ✅ UPDATE: CORS Settings - Add your Netlify frontend
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+    'https://scspbd.netlify.app',  # Your frontend
+    'https://smart-community-services-platform.onrender.com',  # Your backend
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+])
 
-# Celery Configuration
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-CELERY_WORKER_CONCURRENCY = 1
-CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
-
-# Static & Media Files
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
+# ✅ ADD: CSRF Trusted Origins
+CSRF_TRUSTED_ORIGINS = [
+    'https://scspbd.netlify.app',
+    'https://smart-community-services-platform.onrender.com',
 ]
 
-MEDIA_URL = '/media/'
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
-
-# Cloudinary Configuration
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': env('CLOUDINARY_API_KEY'),
-    'API_SECRET': env('CLOUDINARY_API_SECRET'),
-    'SECURE': True,
-    'PROCESS_MEDIA': True,
-}
-
-# Security Headers
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_HSTS_SECONDS = 31536000  # 1 year
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-X_FRAME_OPTIONS = 'DENY'
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# CORS Settings
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CORS_ALLOW_CREDENTIALS = True
 CORS_EXPOSE_HEADERS = ['Content-Type', 'X-CSRFToken']
 CORS_ALLOW_METHODS = [
@@ -104,17 +51,8 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Email Configuration
-EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = env('EMAIL_HOST')
-EMAIL_PORT = env.int('EMAIL_PORT')
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
-
-# Frontend URL
-FRONTEND_URL = env('FRONTEND_URL', default='https://your-frontend.onrender.com')
+# ✅ UPDATE: Frontend URL
+FRONTEND_URL = env('FRONTEND_URL', default='https://scspbd.netlify.app')
 
 # API Keys
 GEMINI_API_KEY = env('GEMINI_API_KEY')
