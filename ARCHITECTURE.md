@@ -151,7 +151,7 @@ Django View → OpenAI SDK → GPT-4o API          (AI inference, synchronous)
 ### App Module Structure
 
 ```
-backend/
+server/
 ├── config/
 │   ├── settings/
 │   │   ├── base.py          # Shared: DB, auth, DRF, Celery, Channels

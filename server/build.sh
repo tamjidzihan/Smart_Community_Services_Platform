@@ -1,6 +1,3 @@
-#!/bin/bash
-# build.sh - Complete build script for Render
-
 set -e  # Exit on error
 
 echo "🚀 Starting SCSP build process..."
