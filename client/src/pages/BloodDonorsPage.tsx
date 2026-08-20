@@ -54,6 +54,24 @@ export default function BloodDonorsPage() {
     },
   })
 
+  const { data: requestsData, isLoading: isLoadingRequests } = useQuery({
+    queryKey: ['active-blood-requests', bloodGroup],
+    queryFn: async () => {
+      const res = await bloodApi.getActiveRequests(bloodGroup === 'All' ? undefined : bloodGroup)
+      return res.data
+    },
+  })
+
+  const resolveRequestMutation = useMutation({
+    mutationFn: (id: string) => bloodApi.updateRequestStatus(id, 'fulfilled'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['active-blood-requests'] })
+    },
+    onError: (err: any) => {
+      alert(err?.response?.data?.error || 'Failed to update request status')
+    }
+  })
+
   const registerMutation = useMutation({
     mutationFn: (data: any) => bloodApi.registerDonor(data),
     onSuccess: () => {
@@ -208,6 +226,86 @@ export default function BloodDonorsPage() {
             </Grid>
           </Grid>
         </Paper>
+
+        {/* Live Emergency Requests Section */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <span style={{ height: 10, width: 10, borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block', animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' }} />
+            Live Emergency Requests ({requestsData?.count || 0})
+            <style>
+              {`
+                @keyframes pulse {
+                  0%, 100% { opacity: 1; }
+                  50% { opacity: .5; }
+                }
+              `}
+            </style>
+          </Typography>
+
+          {isLoadingRequests ? (
+            <CircularProgress size={32} color="error" />
+          ) : (
+            <Grid container spacing={2}>
+              {requestsData?.results.map((req: any) => {
+                const isOwner = user?.id === req.requester
+                return (
+                  <Grid size={{ xs: 12, md: 6 }} key={req.id}>
+                    <Card sx={{ borderRadius: 3, borderLeft: '4px solid', borderColor: req.urgency === 'critical' ? 'error.main' : 'warning.main', position: 'relative' }}>
+                      <CardContent>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+                          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                            <Avatar sx={{ bgcolor: 'error.light', color: 'error.main', fontWeight: 800 }}>{req.blood_group}</Avatar>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{req.units_needed} Unit(s) Needed</Typography>
+                              <Typography variant="body2" color="text.secondary">Patient: {req.patient_name}</Typography>
+                            </Box>
+                          </Box>
+                          <Chip label={req.urgency.toUpperCase()} color={req.urgency === 'critical' ? 'error' : 'warning'} size="small" />
+                        </Box>
+                        
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                          <strong>Hospital:</strong> {req.hospital_name || 'N/A'}
+                        </Typography>
+                        {req.notes && (
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            {req.notes}
+                          </Typography>
+                        )}
+                        
+                        <Divider sx={{ my: 1.5 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Requested by {req.requester_name} • {new Date(req.created_at).toLocaleDateString()}
+                          </Typography>
+                          
+                          {isOwner && (
+                            <Button 
+                              variant="contained" 
+                              color="success" 
+                              size="small"
+                              disabled={resolveRequestMutation.isPending}
+                              onClick={() => resolveRequestMutation.mutate(req.id)}
+                            >
+                              Mark as Solved
+                            </Button>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                )
+              })}
+              
+              {requestsData?.results.length === 0 && (
+                <Grid size={12}>
+                  <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3, bgcolor: 'transparent', border: '1px dashed', borderColor: 'divider' }}>
+                    <Typography color="text.secondary">No active blood requests in your area right now.</Typography>
+                  </Paper>
+                </Grid>
+              )}
+            </Grid>
+          )}
+        </Box>
 
         <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>

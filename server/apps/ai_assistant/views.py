@@ -1,5 +1,6 @@
 import json
 from django.conf import settings
+from django.db.models import Q
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -29,24 +30,178 @@ Your job is to help citizens find and access community services in their area.
 
 Always respond with a JSON object with this exact structure:
 {
-  "intent": "blood_search|hospital_search|ambulance_request|appointment_book|education_search|ngo_search|government_info|emergency|general",
+  "intent": "blood_search|hospital_search|doctor_search|ambulance_request|education_search|ngo_search|government_info|general",
   "entities": {
     "blood_group": null,
     "specialization": null,
+    "hospital_category": null,
     "urgency": "normal",
-    "location": null,
-    "radius_km": 10,
-    "category": null,
+    "radius_km": 15,
     "keyword": null
   },
   "human_response": "A friendly, helpful response to the user in plain text.",
-  "confidence": 0.95,
-  "action_required": false,
-  "suggested_actions": []
+  "confidence": 0.95
 }
+
+Examples:
+- "find me a dentist" -> intent: "doctor_search", specialization: "Dentist"
+- "I need O+ blood donor near me" -> intent: "blood_search", blood_group: "O+"
+- "find dental hospital" -> intent: "hospital_search", hospital_category: "dental"
+- "cardiologist near me" -> intent: "doctor_search", specialization: "Cardiology"
+- "emergency ambulance" -> intent: "ambulance_request", urgency: "emergency"
+
+Specialization mappings:
+- "dentist" or "dental" -> "Dentist" or "Dental"
+- "heart doctor" or "cardiologist" -> "Cardiology" or "Cardiologist"
+- "eye doctor" or "ophthalmologist" -> "Ophthalmology" or "Ophthalmologist"
+- "children doctor" or "pediatrician" -> "Pediatrics" or "Pediatrician"
+
+Hospital categories: general, specialized, clinic, diagnostic, pharmacy, dental, eye, maternity
+
+Blood groups: A+, A-, B+, B-, AB+, AB-, O+, O-
 
 Be concise, empathetic, and helpful. For emergencies, set urgency to "emergency" and confidence high.
 Always respond in valid JSON only — no markdown, no extra text outside the JSON."""
+
+
+# ─── Database Search Helpers ─────────────────────────────────────────────────
+
+def _execute_blood_search(entities, lat, lon):
+    """Search blood donors by blood group + optional geolocation."""
+    from apps.blood.models import BloodDonor, COMPATIBLE_DONORS
+    from apps.blood.views import BloodDonorSerializer
+    from utils.geo import calculate_distance_km
+
+    blood_group = (entities.get('blood_group') or '').upper().strip()
+    if not blood_group:
+        return {}
+    compatible_groups = COMPATIBLE_DONORS.get(blood_group, [blood_group])
+    qs = BloodDonor.objects.filter(
+        blood_group__in=compatible_groups, is_available=True,
+    ).select_related('user__profile')
+    radius = entities.get('radius_km') or 15
+    results = []
+    if lat and lon:
+        for donor in qs:
+            if donor.latitude and donor.longitude:
+                dist = calculate_distance_km(lat, lon, donor.latitude, donor.longitude)
+                if dist <= radius:
+                    donor._distance_km = round(dist, 2)
+                    results.append(donor)
+        results.sort(key=lambda x: x._distance_km)
+    else:
+        results = list(qs[:10])
+    return {
+        'donors': BloodDonorSerializer(results[:10], many=True).data,
+        '_meta': {'result_type': 'blood_donors', 'total_found': len(results),
+                  'blood_group_requested': blood_group, 'compatible_groups': compatible_groups},
+    }
+
+
+def _execute_doctor_search(entities, lat, lon):
+    """Search doctors by specialization + optional geolocation."""
+    from apps.healthcare.models import Doctor
+    from apps.healthcare.views import DoctorSerializer
+    from utils.geo import calculate_distance_km
+
+    spec = (entities.get('specialization') or '').strip()
+    if not spec:
+        return {}
+    qs = Doctor.objects.filter(
+        specialization__icontains=spec, is_available=True,
+    ).select_related('hospital').prefetch_related('schedules')
+    radius = entities.get('radius_km') or 15
+    results = []
+    if lat and lon:
+        for doc in qs:
+            h = doc.hospital
+            if h and h.latitude and h.longitude:
+                dist = calculate_distance_km(lat, lon, h.latitude, h.longitude)
+                if dist <= radius:
+                    doc._distance_km = round(dist, 2)
+                    results.append(doc)
+        results.sort(key=lambda x: getattr(x, '_distance_km', 9999))
+    else:
+        results = list(qs[:10])
+    return {
+        'doctors': DoctorSerializer(results[:10], many=True).data,
+        '_meta': {'result_type': 'doctors', 'total_found': len(results), 'specialization': spec},
+    }
+
+
+def _execute_hospital_search(entities, lat, lon):
+    """Search hospitals by category / keyword / specialization."""
+    from apps.healthcare.models import Hospital
+    from apps.healthcare.views import HospitalSerializer
+    from utils.geo import calculate_distance_km
+
+    category = (entities.get('hospital_category') or '').strip()
+    keyword = (entities.get('keyword') or '').strip()
+    spec = (entities.get('specialization') or '').strip()
+    qs = Hospital.objects.all()
+    if category:
+        qs = qs.filter(category=category)
+    if keyword:
+        qs = qs.filter(Q(name__icontains=keyword) | Q(description__icontains=keyword) | Q(address__icontains=keyword))
+    if spec and not category and not keyword:
+        qs = qs.filter(Q(name__icontains=spec) | Q(description__icontains=spec) | Q(category__icontains=spec))
+    radius = entities.get('radius_km') or 15
+    results = []
+    if lat and lon:
+        for h in qs:
+            if h.latitude and h.longitude:
+                dist = calculate_distance_km(lat, lon, h.latitude, h.longitude)
+                if dist <= radius:
+                    h._distance_km = round(dist, 2)
+                    results.append(h)
+        results.sort(key=lambda x: x._distance_km)
+    else:
+        results = list(qs[:10])
+    return {
+        'hospitals': HospitalSerializer(results[:10], many=True).data,
+        '_meta': {'result_type': 'hospitals', 'total_found': len(results),
+                  'category': category, 'keyword': keyword or spec},
+    }
+
+
+def _execute_ambulance_search(lat, lon, entities):
+    """Find available ambulances near the user's location."""
+    from apps.ambulance.models import Ambulance
+    from apps.ambulance.serializers import AmbulanceSerializer
+    from utils.geo import calculate_distance_km
+
+    if not lat or not lon:
+        return {}
+    ambulances = Ambulance.objects.filter(is_active=True, status='available')
+    results = []
+    for a in ambulances:
+        if a.current_latitude and a.current_longitude:
+            dist = calculate_distance_km(lat, lon, a.current_latitude, a.current_longitude)
+            if dist <= 20:
+                a._distance_km = round(dist, 2)
+                results.append(a)
+    results.sort(key=lambda x: x._distance_km)
+    return {
+        'ambulances': AmbulanceSerializer(results[:5], many=True).data,
+        '_meta': {'result_type': 'ambulances', 'total_found': len(results),
+                  'urgency': entities.get('urgency', 'normal')},
+    }
+
+
+def _run_db_query(intent, entities, lat, lon):
+    """Dispatch intent to the right DB search helper."""
+    try:
+        if intent == 'blood_search' and entities.get('blood_group'):
+            return _execute_blood_search(entities, lat, lon)
+        if intent == 'doctor_search' and entities.get('specialization'):
+            return _execute_doctor_search(entities, lat, lon)
+        if intent == 'hospital_search':
+            return _execute_hospital_search(entities, lat, lon)
+        if intent == 'ambulance_request':
+            return _execute_ambulance_search(lat, lon, entities)
+    except Exception as e:
+        return {'_error': str(e)}
+    return {}
 
 
 @api_view(['POST'])
@@ -62,13 +217,12 @@ def chat(request):
     lon = serializer.validated_data.get('longitude')
 
     if not settings.GEMINI_API_KEY:
-        # Return mock response if no API key
         return Response({
             'session_id': session_id,
             'intent': 'general',
             'human_response': f'I received your message: "{message}". Please configure GEMINI_API_KEY for full AI functionality.',
             'entities': {},
-            'suggested_actions': [],
+            'data': {},
         })
 
     try:
@@ -97,108 +251,49 @@ def chat(request):
         result = json.loads(raw)
 
         # Save conversation if user is authenticated
-        if request.user.is_authenticated:
-            _save_conversation(request.user, session_id, message, result)
+        if request.user and request.user.is_authenticated:
+            try:
+                from apps.ai_assistant.models import AIConversation
+                AIConversation.objects.create(user=request.user, session_id=session_id,
+                                             role='user', content=message, intent=result.get('intent', ''))
+                AIConversation.objects.create(user=request.user, session_id=session_id,
+                                             role='assistant', content=result.get('human_response', ''),
+                                             intent=result.get('intent', ''))
+            except Exception:
+                pass
 
-        # Execute intent → get real data
-        service_data = _resolve_intent(result, lat, lon)
+        # Execute DB search based on the detected intent
+        intent = result.get('intent', 'general')
+        entities = result.get('entities', {})
+        db_data = _run_db_query(intent, entities, lat, lon)
+
+        # Build human-readable response with result counts
+        human_response = result.get('human_response', '')
+        meta = db_data.pop('_meta', {})
+        total = meta.get('total_found', 0)
+
+        if total == 0 and intent != 'general':
+            human_response += f"\n\nI searched our database but couldn't find any matching results right now. Please try broadening your search or check back later."
 
         return Response({
             'session_id': session_id,
-            'intent': result.get('intent', 'general'),
-            'human_response': result.get('human_response', ''),
-            'entities': result.get('entities', {}),
-            'confidence': result.get('confidence', 0),
-            'suggested_actions': result.get('suggested_actions', []),
-            'data': service_data,
+            'intent': intent,
+            'human_response': human_response,
+            'entities': entities,
+            'confidence': result.get('confidence', 0.8),
+            'data': db_data,
+            'total_found': total,
         })
 
     except Exception as e:
-        return Response({'error': str(e), 'human_response': 'Sorry, I encountered an error. Please try again.'}, status=500)
-
-
-def _save_conversation(user, session_id, user_message, ai_result):
-    """Save conversation to DB."""
-    try:
-        from apps.ai_assistant.models import AIConversation
-        AIConversation.objects.create(
-            user=user,
-            session_id=session_id,
-            role='user',
-            content=user_message,
-            intent='',
-        )
-        AIConversation.objects.create(
-            user=user,
-            session_id=session_id,
-            role='assistant',
-            content=ai_result.get('human_response', ''),
-            intent=ai_result.get('intent', ''),
-        )
-    except Exception:
-        pass
-
-
-def _resolve_intent(result, lat, lon):
-    """Convert AI intent into actual DB query results."""
-    intent = result.get('intent', 'general')
-    entities = result.get('entities', {})
-    data = {}
-
-    try:
-        if intent == 'blood_search' and lat and lon:
-            from apps.blood.models import BloodDonor, COMPATIBLE_DONORS
-            from apps.blood.views import BloodDonorSerializer
-            from utils.geo import calculate_distance_km
-            blood_group = entities.get('blood_group', 'O+')
-            compatible = COMPATIBLE_DONORS.get(blood_group, [blood_group])
-            donors = BloodDonor.objects.filter(is_available=True, blood_group__in=compatible).select_related('user__profile')
-            results = []
-            for d in donors:
-                dist = calculate_distance_km(lat, lon, d.latitude, d.longitude)
-                if dist <= (entities.get('radius_km') or 20):
-                    d._distance_km = round(dist, 2)
-                    results.append(d)
-            results.sort(key=lambda x: x._distance_km)
-            data['donors'] = BloodDonorSerializer(results[:5], many=True).data
-
-        elif intent == 'hospital_search' and lat and lon:
-            from apps.healthcare.models import Hospital
-            from apps.healthcare.views import HospitalSerializer
-            from utils.geo import calculate_distance_km
-            qs = Hospital.objects.all()
-            spec = entities.get('specialization')
-            if spec:
-                qs = qs.filter(description__icontains=spec)
-            results = []
-            for h in qs:
-                if h.latitude and h.longitude:
-                    dist = calculate_distance_km(lat, lon, h.latitude, h.longitude)
-                    if dist <= (entities.get('radius_km') or 15):
-                        h._distance_km = round(dist, 2)
-                        results.append(h)
-            results.sort(key=lambda x: x._distance_km)
-            data['hospitals'] = HospitalSerializer(results[:5], many=True).data
-
-        elif intent == 'ambulance_request' and lat and lon:
-            from apps.ambulance.models import Ambulance
-            from apps.ambulance.serializers import AmbulanceSerializer
-            from utils.geo import calculate_distance_km
-            ambulances = Ambulance.objects.filter(is_active=True, status='available')
-            results = []
-            for a in ambulances:
-                if a.current_latitude and a.current_longitude:
-                    dist = calculate_distance_km(lat, lon, a.current_latitude, a.current_longitude)
-                    if dist <= 15:
-                        a._distance_km = round(dist, 2)
-                        results.append(a)
-            results.sort(key=lambda x: x._distance_km)
-            data['ambulances'] = AmbulanceSerializer(results[:3], many=True).data
-
-    except Exception as e:
-        data['error'] = str(e)
-
-    return data
+        return Response({
+            'session_id': session_id,
+            'intent': 'general',
+            'human_response': 'Sorry, I encountered an error. Please try again.',
+            'entities': {},
+            'data': {},
+            'error': str(e),
+        }, status=500)
 
 
 @api_view(['GET'])
@@ -206,12 +301,49 @@ def _resolve_intent(result, lat, lon):
 def chat_history(request):
     try:
         from apps.ai_assistant.models import AIConversation
+        from django.db.models import Max, Count
         session_id = request.query_params.get('session_id')
-        qs = AIConversation.objects.filter(user=request.user).order_by('-created_at')[:50]
+
         if session_id:
-            qs = AIConversation.objects.filter(user=request.user, session_id=session_id).order_by('created_at')
-        data = [{'role': c.role, 'content': c.content, 'intent': c.intent, 'created_at': c.created_at} for c in qs]
-        return Response({'results': data})
+            # Return messages for a specific session
+            qs = AIConversation.objects.filter(
+                user=request.user, session_id=session_id,
+            ).order_by('created_at')
+            data = [{
+                'role': c.role, 'content': c.content,
+                'intent': c.intent, 'created_at': c.created_at,
+                'session_id': c.session_id,
+            } for c in qs]
+            return Response({'results': data})
+
+        # No session_id → return list of recent sessions with preview
+        sessions = (
+            AIConversation.objects
+            .filter(user=request.user)
+            .values('session_id')
+            .annotate(
+                last_message_at=Max('created_at'),
+                message_count=Count('id'),
+            )
+            .order_by('-last_message_at')[:20]
+        )
+
+        session_list = []
+        for s in sessions:
+            last_msg = (
+                AIConversation.objects
+                .filter(user=request.user, session_id=s['session_id'], role='user')
+                .order_by('-created_at')
+                .first()
+            )
+            session_list.append({
+                'session_id': s['session_id'],
+                'last_message_at': s['last_message_at'],
+                'message_count': s['message_count'],
+                'preview': last_msg.content[:80] if last_msg else 'Conversation',
+            })
+
+        return Response({'sessions': session_list})
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 

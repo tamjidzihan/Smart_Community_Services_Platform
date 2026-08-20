@@ -34,15 +34,16 @@ class BloodDonorWriteSerializer(serializers.ModelSerializer):
 
 class BloodRequestSerializer(serializers.ModelSerializer):
     requester_name = serializers.CharField(source='requester.profile.full_name', read_only=True)
+    requester = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = BloodRequest
         fields = [
-            'id', 'requester_name', 'blood_group', 'units_needed', 'units_fulfilled',
+            'id', 'requester', 'requester_name', 'blood_group', 'units_needed', 'units_fulfilled',
             'hospital_name', 'patient_name', 'urgency', 'status',
             'latitude', 'longitude', 'notes', 'created_at', 'resolved_at',
         ]
-        read_only_fields = ['id', 'units_fulfilled', 'status', 'requester_name', 'created_at']
+        read_only_fields = ['id', 'requester', 'units_fulfilled', 'status', 'requester_name', 'created_at']
 
 
 # ─── Views ───────────────────────────────────────────────────────────────────
@@ -143,12 +144,39 @@ class BloodRequestViewSet(viewsets.ModelViewSet):
         except Exception:
             pass
 
+    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny], url_path='active')
+    def active_requests(self, request):
+        qs = BloodRequest.objects.filter(
+            status__in=['open', 'partially_fulfilled']
+        ).select_related('requester__profile').order_by('-created_at')
+
+        blood_group = request.query_params.get('blood_group')
+        if blood_group:
+            qs = qs.filter(blood_group=blood_group)
+
+        # Basic pagination output shape matching the default viewsets
+        page = self.paginate_queryset(qs)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(qs, many=True)
+        return Response({
+            'results': serializer.data,
+            'count': qs.count(),
+        })
+
     @action(detail=True, methods=['patch'], permission_classes=[permissions.IsAuthenticated])
     def update_status(self, request, pk=None):
         user = request.user
-        if not (user.is_staff or user.is_superuser or user.roles.filter(name__in=['admin', 'moderator']).exists()):
-            return Response({'error': 'Not authorized.'}, status=403)
         blood_request = self.get_object()
+        
+        is_admin = user.is_staff or user.is_superuser or user.roles.filter(name__in=['admin', 'moderator']).exists()
+        is_owner = blood_request.requester_id == user.id
+
+        if not (is_admin or is_owner):
+            return Response({'error': 'Not authorized.'}, status=403)
+            
         status_val = request.data.get('status')
         units_fulfilled_val = request.data.get('units_fulfilled')
         notes_val = request.data.get('notes')
@@ -157,6 +185,10 @@ class BloodRequestViewSet(viewsets.ModelViewSet):
             valid_statuses = [s[0] for s in BloodRequest.STATUS]
             if status_val not in valid_statuses:
                 return Response({'error': 'Invalid status'}, status=400)
+            
+            if is_owner and not is_admin and status_val not in ['fulfilled', 'cancelled']:
+                return Response({'error': 'You can only mark your request as fulfilled or cancelled.'}, status=400)
+                
             blood_request.status = status_val
             if status_val in ['fulfilled', 'cancelled']:
                 from django.utils import timezone

@@ -72,6 +72,12 @@ export const bloodApi = {
     api.patch(`/blood/donors/${id}/`, { is_available }),
   getMyRequests: () => api.get<PaginatedResponse<BloodRequest>>('/blood/requests/'),
   createRequest: (data: Partial<BloodRequest>) => api.post<BloodRequest>('/blood/requests/', data),
+  getActiveRequests: (blood_group?: string) => 
+    api.get<{ results: BloodRequest[]; count: number }>('/blood/requests/active/', {
+      params: blood_group && blood_group !== 'All' ? { blood_group } : {}
+    }),
+  updateRequestStatus: (id: string, status: string) =>
+    api.patch<{ message: string; status: string }>(`/blood/requests/${id}/update_status/`, { status }),
 }
 
 // ─── Ambulance ────────────────────────────────────────────────────────────────
@@ -105,8 +111,10 @@ export const notificationsApi = {
 export const aiApi = {
   chat: (message: string, session_id?: string, lat?: number, lng?: number) =>
     api.post<AIChatResponse>('/ai/chat/', { message, session_id, latitude: lat, longitude: lng }),
-  getHistory: (session_id?: string) =>
-    api.get('/ai/chat/history/', { params: session_id ? { session_id } : {} }),
+  getHistory: (session_id: string) =>
+    api.get<{ results: Array<{ role: string; content: string; intent: string; created_at: string; session_id: string }> }>('/ai/chat/history/', { params: { session_id } }),
+  getSessions: () =>
+    api.get<{ sessions: Array<{ session_id: string; last_message_at: string; message_count: number; preview: string }> }>('/ai/chat/history/'),
   getRecommendations: (lat: number, lng: number) =>
     api.get<{ results: ServiceListing[] }>('/ai/recommend/', { params: { lat, lng } }),
 }

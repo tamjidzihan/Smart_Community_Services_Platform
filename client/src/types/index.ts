@@ -157,6 +157,7 @@ export interface BloodDonor {
 
 export interface BloodRequest {
   id: string
+  requester: string
   requester_name: string
   blood_group: BloodGroup
   units_needed: number
@@ -230,8 +231,8 @@ export interface AIChatResponse {
   human_response: string
   entities: Record<string, unknown>
   confidence: number
-  suggested_actions: string[]
   data: Record<string, unknown>
+  total_found?: number
 }
 
 // ─── Pagination ───────────────────────────────────────────────────────────────
