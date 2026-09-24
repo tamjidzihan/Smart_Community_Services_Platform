@@ -29,6 +29,7 @@ import django
 django.setup()
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import make_password
 from django.db import transaction
 from apps.healthcare.models import (
     Hospital, HospitalBranch, Department, Specialist,
@@ -49,25 +50,35 @@ print("=" * 70)
 print("\n[1/6] Purging all existing database records...")
 from django.db import connection
 
-with connection.cursor() as cursor:
-    cursor.execute("""
-        DO $$ 
-        DECLARE 
-            r RECORD;
-        BEGIN
-            FOR r IN (
-                SELECT tablename 
-                FROM pg_tables 
-                WHERE schemaname = 'public' 
-                  AND tablename NOT LIKE 'django_migrations%'
-                  AND tablename NOT LIKE 'spatial_ref_sys%'
-            ) LOOP
-                EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE;';
-            END LOOP;
-        END $$;
-    """)
+if connection.vendor == 'postgresql':
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            DO $$ 
+            DECLARE 
+                r RECORD;
+            BEGIN
+                FOR r IN (
+                    SELECT tablename 
+                    FROM pg_tables 
+                    WHERE schemaname = 'public' 
+                      AND tablename NOT LIKE 'django_migrations%'
+                      AND tablename NOT LIKE 'spatial_ref_sys%'
+                ) LOOP
+                    EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' CASCADE;';
+                END LOOP;
+            END $$;
+        """)
+else:
+    # SQLite cleanup
+    with connection.cursor() as cursor:
+        cursor.execute("PRAGMA foreign_keys = OFF;")
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'django_migrations%' AND name NOT LIKE 'sqlite_%';")
+        tables = [row[0] for row in cursor.fetchall()]
+        for table in tables:
+            cursor.execute(f"DELETE FROM \"{table}\";")
+        cursor.execute("PRAGMA foreign_keys = ON;")
 
-print("  ✓ All database tables purged cleanly (TRUNCATE CASCADE).")
+print("  ✓ All database tables purged cleanly.")
 
 # 2. SEED ROLES & SUPERUSER
 print("\n[2/6] Creating roles & superuser (admin@admin.com)...")
@@ -309,79 +320,80 @@ for prefix in hospital_prefixes:
 created_hospitals = []
 department_objects_by_hospital = {}
 
-for item in all_hospital_data:
-    hname, htype, haddress, harea, hlat, hlon, hphone, hem_phone, hweb, hbeds, havail, hest = item
-    rating = round(random.uniform(4.2, 4.95), 1)
-    reviews_cnt = random.randint(45, 850)
-    
-    h = Hospital.objects.create(
-        name=hname,
-        slug=slugify(hname)[:210],
-        hospital_type=htype,
-        description=f"{hname} is an accredited healthcare institution located in {harea}, Dhaka, providing clinical diagnostics, certified medical faculty consultations, state-of-the-art operation theaters, and patient care services.",
-        address=haddress,
-        division="Dhaka",
-        district="Dhaka",
-        city="Dhaka",
-        area=harea,
-        latitude=hlat,
-        longitude=hlon,
-        phone=hphone,
-        emergency_phone=hem_phone,
-        email=f"info@{slugify(hname)[:30]}.com.bd",
-        website=hweb,
-        emergency_available=True,
-        open_24_hours=True,
-        ambulance_available=random.choice([True, False]),
-        bed_count=hbeds,
-        available_beds=havail,
-        established_year=hest,
-        is_verified=True,
-        status='active',
-        average_rating=rating,
-        review_count=reviews_cnt
-    )
-    created_hospitals.append(h)
-    
-    # Main Branch
-    HospitalBranch.objects.create(
-        hospital=h,
-        name="Main Campus",
-        address=haddress,
-        division="Dhaka",
-        district="Dhaka",
-        city="Dhaka",
-        area=harea,
-        phone=hphone,
-        telephones=f"{hphone}, {hem_phone}",
-        latitude=hlat,
-        longitude=hlon,
-        opening_hours="24/7 Emergency & OPD (8:00 AM - 10:00 PM)",
-        status='active'
-    )
-    
-    # Departments
-    dept_names = random.sample([
-        "Cardiology", "Neurology", "Nephrology", "Orthopedics", "Pediatrics",
-        "Gynecology & Obstetrics", "Dermatology", "Gastroenterology", "General Surgery",
-        "Internal Medicine", "Oncology", "Urology", "Ophthalmology", "ENT & Head Neck Surgery",
-        "Psychiatry", "Endocrinology", "Pulmonology & Chest Medicine"
-    ], k=random.randint(5, 10))
-    
-    dept_objs = []
-    for dname in dept_names:
-        dept = Department.objects.create(
-            hospital=h,
-            name=dname,
-            slug=slugify(dname)[:170],
-            description=f"Department of {dname} at {h.name} offering diagnostics, inpatient management, and specialized consultant chambers.",
+with transaction.atomic():
+    for item in all_hospital_data:
+        hname, htype, haddress, harea, hlat, hlon, hphone, hem_phone, hweb, hbeds, havail, hest = item
+        rating = round(random.uniform(4.2, 4.95), 1)
+        reviews_cnt = random.randint(45, 850)
+        
+        h = Hospital.objects.create(
+            name=hname,
+            slug=slugify(hname)[:210],
+            hospital_type=htype,
+            description=f"{hname} is an accredited healthcare institution located in {harea}, Dhaka, providing clinical diagnostics, certified medical faculty consultations, state-of-the-art operation theaters, and patient care services.",
+            address=haddress,
+            division="Dhaka",
+            district="Dhaka",
+            city="Dhaka",
+            area=harea,
+            latitude=hlat,
+            longitude=hlon,
+            phone=hphone,
+            emergency_phone=hem_phone,
+            email=f"info@{slugify(hname)[:30]}.com.bd",
+            website=hweb,
+            emergency_available=True,
+            open_24_hours=True,
+            ambulance_available=random.choice([True, False]),
+            bed_count=hbeds,
+            available_beds=havail,
+            established_year=hest,
+            is_verified=True,
             status='active',
-            average_rating=round(random.uniform(4.0, 5.0), 1),
-            review_count=random.randint(15, 200)
+            average_rating=rating,
+            review_count=reviews_cnt
         )
-        dept_objs.append(dept)
-    
-    department_objects_by_hospital[h.id] = dept_objs
+        created_hospitals.append(h)
+        
+        # Main Branch
+        HospitalBranch.objects.create(
+            hospital=h,
+            name="Main Campus",
+            address=haddress,
+            division="Dhaka",
+            district="Dhaka",
+            city="Dhaka",
+            area=harea,
+            phone=hphone,
+            telephones=f"{hphone}, {hem_phone}",
+            latitude=hlat,
+            longitude=hlon,
+            opening_hours="24/7 Emergency & OPD (8:00 AM - 10:00 PM)",
+            status='active'
+        )
+        
+        # Departments
+        dept_names = random.sample([
+            "Cardiology", "Neurology", "Nephrology", "Orthopedics", "Pediatrics",
+            "Gynecology & Obstetrics", "Dermatology", "Gastroenterology", "General Surgery",
+            "Internal Medicine", "Oncology", "Urology", "Ophthalmology", "ENT & Head Neck Surgery",
+            "Psychiatry", "Endocrinology", "Pulmonology & Chest Medicine"
+        ], k=random.randint(5, 10))
+        
+        dept_objs = []
+        for dname in dept_names:
+            dept = Department.objects.create(
+                hospital=h,
+                name=dname,
+                slug=slugify(dname)[:170],
+                description=f"Department of {dname} at {h.name} offering diagnostics, inpatient management, and specialized consultant chambers.",
+                status='active',
+                average_rating=round(random.uniform(4.0, 5.0), 1),
+                review_count=random.randint(15, 200)
+            )
+            dept_objs.append(dept)
+        
+        department_objects_by_hospital[h.id] = dept_objs
 
 print(f"  ✓ {len(created_hospitals)} Hospitals and hospital departments seeded in Dhaka.")
 
@@ -610,20 +622,21 @@ SAMPLE_REVIEW_COMMENTS = [
 ]
 
 review_users = []
-for idx in range(30):
-    u = User.objects.create(
-        email=f"patient.user{idx+1}@gmail.com",
-        is_active=True,
-        is_email_verified=True
-    )
-    u.set_password('patient1234')
-    u.save()
-    u.roles.add(role_citizen)
-    p, _ = UserProfile.objects.get_or_create(user=u)
-    p.full_name = f"{random.choice(FIRST_NAMES_MALE + FIRST_NAMES_FEMALE)} {random.choice(LAST_NAMES)}"
-    p.gender = random.choice(['M', 'F'])
-    p.save()
-    review_users.append(u)
+patient_hashed_pw = make_password('patient1234')
+with transaction.atomic():
+    for idx in range(30):
+        u = User.objects.create(
+            email=f"patient.user{idx+1}@gmail.com",
+            password=patient_hashed_pw,
+            is_active=True,
+            is_email_verified=True
+        )
+        u.roles.add(role_citizen)
+        p, _ = UserProfile.objects.get_or_create(user=u)
+        p.full_name = f"{random.choice(FIRST_NAMES_MALE + FIRST_NAMES_FEMALE)} {random.choice(LAST_NAMES)}"
+        p.gender = random.choice(['M', 'F'])
+        p.save()
+        review_users.append(u)
 
 reviews_batch = []
 for doc in created_doctors[:300]:
@@ -656,6 +669,7 @@ print(f"  [OK] {len(reviews_batch)} Patient reviews and verified ratings seeded.
 # 7. SEED 1,000+ BLOOD DONORS & REQUESTS
 print("\n[7/7] Seeding 1,000+ Voluntary Blood Donors across Dhaka...")
 
+donor_hashed_pw = make_password('donor1234')
 with transaction.atomic():
     for idx in range(1000):
         bg = random.choice(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])
@@ -669,11 +683,10 @@ with transaction.atomic():
         
         u = User.objects.create(
             email=f"donor.{slugify(fname)}.{slugify(lname)}{random.randint(100,99999)}@gmail.com",
+            password=donor_hashed_pw,
             is_active=True,
             is_email_verified=True
         )
-        u.set_password('donor1234')
-        u.save()
         u.roles.add(role_citizen)
         
         p, _ = UserProfile.objects.get_or_create(user=u)
@@ -709,7 +722,7 @@ with transaction.atomic():
         BloodRequest.objects.create(
             requester=u,
             blood_group=bg,
-            units_needed=units,
+            units_needed=random.randint(1, 4),
             units_fulfilled=0,
             patient_name=f"{random.choice(FIRST_NAMES_MALE + FIRST_NAMES_FEMALE)} {random.choice(LAST_NAMES)}",
             hospital_name=hosp.name,

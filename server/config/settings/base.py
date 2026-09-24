@@ -94,17 +94,27 @@ TEMPLATES = [{
 }]
 
 # Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME', default='scsp_db'),
-        'USER': env('DB_USER', default='scsp_user'),
-        'PASSWORD': env('DB_PASSWORD', default='scsp_pass'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
-        'CONN_MAX_AGE': 60,
+USE_SQLITE = env.bool('USE_SQLITE', default=True)
+
+if USE_SQLITE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('DB_NAME', default='scsp_db'),
+            'USER': env('DB_USER', default='scsp_user'),
+            'PASSWORD': env('DB_PASSWORD', default='scsp_pass'),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'CONN_MAX_AGE': 60,
+        }
+    }
 
 # Redis
 REDIS_URL = env('REDIS_URL', default='redis://localhost:6379/0')

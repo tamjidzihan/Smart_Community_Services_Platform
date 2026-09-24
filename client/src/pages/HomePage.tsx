@@ -28,9 +28,11 @@ import { doctorApi, hospitalApi, departmentApi } from '../api/services'
 import { DoctorCard } from '../components/healthcare/DoctorCard'
 import { HospitalCard } from '../components/healthcare/HospitalCard'
 import { AppointmentBookingModal } from '../components/healthcare/AppointmentBookingModal'
+import { useAuthStore } from '../store/authStore'
 import type { Doctor, Hospital } from '../types'
 
 export default function HomePage() {
+  const { isAuthenticated } = useAuthStore()
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null)
 
   // ─── Fast Side-by-Side Filter States ──────────────────────────────
@@ -51,6 +53,7 @@ export default function HomePage() {
       // Combine areas and cities uniquely
       return Array.from(new Set([...areas, ...cities])).filter(Boolean)
     },
+    enabled: isAuthenticated,
     staleTime: 1000 * 60 * 10, // 10 minutes cache
   })
 
@@ -61,6 +64,7 @@ export default function HomePage() {
       const res = await departmentApi.getCommonDepartments()
       return res.data || []
     },
+    enabled: isAuthenticated,
     staleTime: 1000 * 60 * 10, // 10 minutes cache
   })
 
@@ -74,7 +78,7 @@ export default function HomePage() {
       const res = await hospitalApi.getHospitals(params)
       return res.data?.results || []
     },
-    enabled: Boolean(selectedArea || hospitalInput.length >= 2),
+    enabled: isAuthenticated && Boolean(selectedArea || hospitalInput.length >= 2),
     staleTime: 1000 * 60 * 5,
   })
 
@@ -91,6 +95,7 @@ export default function HomePage() {
       const res = await doctorApi.getDoctors(params)
       return res.data?.results || []
     },
+    enabled: isAuthenticated && hasSelectedFilters,
     staleTime: 1000 * 60 * 2,
   })
 
@@ -109,8 +114,9 @@ export default function HomePage() {
     queryFn: async () => {
       const res = await doctorApi.getDoctors()
       const list = res.data?.results || res.data || []
-      return list.slice(0, 4)
+      return list.slice(0, 3)
     },
+    enabled: isAuthenticated,
   })
 
   // Fetch Top Hospitals
@@ -121,6 +127,7 @@ export default function HomePage() {
       const list = res.data?.results || res.data || []
       return list.slice(0, 3)
     },
+    enabled: isAuthenticated,
   })
 
   const healthcareCategories = [
@@ -249,192 +256,223 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* 3 Side-by-Side Searchable Dropdowns */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-              {/* 1. Area Dropdown */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                  <LocationOn className="text-teal-600" style={{ fontSize: 18 }} />
-                  1. Select / Search Area
-                </label>
-                <Autocomplete
-                  options={locationsData || []}
-                  loading={isLoadingAreas}
-                  value={selectedArea}
-                  onChange={(_, newValue) => {
-                    setSelectedArea(newValue)
-                    setSelectedHospital(null)
-                  }}
-                  inputValue={areaInput}
-                  onInputChange={(_, newInputValue) => setAreaInput(newInputValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Type Area (e.g. Dhanmondi, Uttara)..."
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '16px',
-                          backgroundColor: '#F8FAFC',
-                          fontSize: '13px',
-                        },
-                      }}
-                    />
-                  )}
-                />
-              </div>
-
-              {/* 2. Hospital Dropdown */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                  <LocalHospital className="text-emerald-600" style={{ fontSize: 18 }} />
-                  2. Select / Search Hospital
-                </label>
-                <Autocomplete
-                  options={hospitalsListData || []}
-                  loading={isLoadingHospitals}
-                  getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
-                  value={selectedHospital}
-                  onChange={(_, newValue) => setSelectedHospital(newValue)}
-                  inputValue={hospitalInput}
-                  onInputChange={(_, newInputValue) => setHospitalInput(newInputValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder={
-                        selectedArea
-                          ? `Hospitals in ${selectedArea}...`
-                          : 'Type hospital name (e.g. Square)...'
-                      }
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '16px',
-                          backgroundColor: '#F8FAFC',
-                          fontSize: '13px',
-                        },
-                      }}
-                    />
-                  )}
-                  renderOption={(props, option) => (
-                    <li {...props} key={option.id} className="p-2 text-xs hover:bg-slate-50 cursor-pointer">
-                      <div className="font-bold text-slate-900">{option.name}</div>
-                      <div className="text-[11px] text-slate-500">{option.area ? `${option.area}, ` : ''}{option.city || ''}</div>
-                    </li>
-                  )}
-                />
-              </div>
-
-              {/* 3. Department Dropdown */}
-              <div className="space-y-1.5">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                  <Category className="text-indigo-600" style={{ fontSize: 18 }} />
-                  3. Select / Search Department
-                </label>
-                <Autocomplete
-                  options={commonDeptsData || []}
-                  loading={isLoadingDepts}
-                  value={selectedDept}
-                  onChange={(_, newValue) => setSelectedDept(newValue)}
-                  inputValue={deptInput}
-                  onInputChange={(_, newInputValue) => setDeptInput(newInputValue)}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder="Type Department (e.g. Cardiology)..."
-                      size="small"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: '16px',
-                          backgroundColor: '#F8FAFC',
-                          fontSize: '13px',
-                        },
-                      }}
-                    />
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Active Filter Summary Badges */}
-            {hasSelectedFilters && (
-              <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-bold text-slate-500">Active Criteria:</span>
-                {selectedArea && (
-                  <span className="px-3 py-1 bg-teal-50 text-teal-800 rounded-full font-semibold flex items-center gap-1">
-                    <LocationOn style={{ fontSize: 14 }} /> Area: {selectedArea}
-                  </span>
-                )}
-                {selectedHospital && (
-                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full font-semibold flex items-center gap-1">
-                    <LocalHospital style={{ fontSize: 14 }} /> Hospital: {selectedHospital.name}
-                  </span>
-                )}
-                {selectedDept && (
-                  <span className="px-3 py-1 bg-indigo-50 text-indigo-800 rounded-full font-semibold flex items-center gap-1">
-                    <Category style={{ fontSize: 14 }} /> Dept: {selectedDept}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Filtered Doctor Results inside Card */}
-            {hasSelectedFilters && (
-              <div className="mt-8 pt-6 border-t border-slate-200/80">
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <h3 className="text-lg font-extrabold text-slate-900">
-                      Matching Doctors ({filteredDoctorsData?.length || 0})
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      Verified physicians matching your chosen criteria
-                    </p>
-                  </div>
-
+            {!isAuthenticated ? (
+              <div className="text-center py-10 px-6 rounded-2xl bg-gradient-to-br from-slate-900 to-teal-950 text-white border border-teal-500/30 shadow-xl space-y-4">
+                <div className="w-14 h-14 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center mx-auto text-2xl border border-teal-500/40">
+                  🔒
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold tracking-tight">
+                  Sign In to Access Doctors & Healthcare Directory
+                </h3>
+                <p className="text-slate-300 text-sm max-w-lg mx-auto leading-relaxed">
+                  Please log in to search 1,000+ verified specialist doctors, filter 225+ hospitals by area and department, book chamber consultations, and use the Clinical AI Assistant.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-3">
                   <Link
-                    to={`/doctors?${selectedArea ? `area=${encodeURIComponent(selectedArea)}&` : ''}${selectedHospital ? `hospital=${encodeURIComponent(selectedHospital.id)}&` : ''}${selectedDept ? `department=${encodeURIComponent(selectedDept)}` : ''}`}
-                    className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 hover:underline"
+                    to="/login"
+                    className="px-6 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-sm transition-all shadow-lg shadow-teal-500/25 inline-flex items-center gap-2"
                   >
-                    View in Full Directory <ArrowForward style={{ fontSize: 14 }} />
+                    Sign In Now
+                    <ArrowForward style={{ fontSize: 16 }} />
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition-colors border border-white/20"
+                  >
+                    Create Free Account
                   </Link>
                 </div>
-
-                {isLoadingDoctors && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-6">
-                    {[...Array(3)].map((_, i) => (
-                      <div key={i} className="bg-slate-50 rounded-2xl p-4 animate-pulse space-y-3">
-                        <div className="w-14 h-14 bg-slate-200 rounded-2xl" />
-                        <div className="h-4 bg-slate-200 rounded w-3/4" />
-                        <div className="h-3 bg-slate-200 rounded w-1/2" />
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {!isLoadingDoctors && filteredDoctorsData && filteredDoctorsData.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                    {filteredDoctorsData.map((doc: Doctor) => (
-                      <DoctorCard key={doc.id} doctor={doc} onBook={(d) => setBookingDoctor(d)} />
-                    ))}
-                  </div>
-                )}
-
-                {!isLoadingDoctors && (!filteredDoctorsData || filteredDoctorsData.length === 0) && (
-                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
-                    <Person className="text-slate-400 mx-auto mb-2" style={{ fontSize: 32 }} />
-                    <div className="text-sm font-bold text-slate-800 mb-1">No doctors found for this combination</div>
-                    <p className="text-xs text-slate-500 max-w-md mx-auto mb-4">
-                      Try clearing one of the filters or searching across nearby hospital branches.
-                    </p>
-                    <button
-                      onClick={clearDropdownFilters}
-                      className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors"
-                    >
-                      Clear Filter Criteria
-                    </button>
-                  </div>
-                )}
               </div>
+            ) : (
+              <>
+                {/* 3 Side-by-Side Searchable Dropdowns */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+                  {/* 1. Area Dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <LocationOn className="text-teal-600" style={{ fontSize: 18 }} />
+                      1. Select / Search Area
+                    </label>
+                    <Autocomplete
+                      options={locationsData || []}
+                      loading={isLoadingAreas}
+                      value={selectedArea}
+                      onChange={(_, newValue) => {
+                        setSelectedArea(newValue)
+                        setSelectedHospital(null)
+                      }}
+                      inputValue={areaInput}
+                      onInputChange={(_, newInputValue) => setAreaInput(newInputValue)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Type Area (e.g. Dhanmondi, Uttara)..."
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '16px',
+                              backgroundColor: '#F8FAFC',
+                              fontSize: '13px',
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                  </div>
+
+                  {/* 2. Hospital Dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <LocalHospital className="text-emerald-600" style={{ fontSize: 18 }} />
+                      2. Select / Search Hospital
+                    </label>
+                    <Autocomplete
+                      options={hospitalsListData || []}
+                      loading={isLoadingHospitals}
+                      getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+                      value={selectedHospital}
+                      onChange={(_, newValue) => setSelectedHospital(newValue)}
+                      inputValue={hospitalInput}
+                      onInputChange={(_, newInputValue) => setHospitalInput(newInputValue)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder={
+                            selectedArea
+                              ? `Hospitals in ${selectedArea}...`
+                              : 'Type hospital name (e.g. Square)...'
+                          }
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '16px',
+                              backgroundColor: '#F8FAFC',
+                              fontSize: '13px',
+                            },
+                          }}
+                        />
+                      )}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option.id} className="p-2 text-xs hover:bg-slate-50 cursor-pointer">
+                          <div className="font-bold text-slate-900">{option.name}</div>
+                          <div className="text-[11px] text-slate-500">{option.area ? `${option.area}, ` : ''}{option.city || ''}</div>
+                        </li>
+                      )}
+                    />
+                  </div>
+
+                  {/* 3. Department Dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                      <Category className="text-indigo-600" style={{ fontSize: 18 }} />
+                      3. Select / Search Department
+                    </label>
+                    <Autocomplete
+                      options={commonDeptsData || []}
+                      loading={isLoadingDepts}
+                      value={selectedDept}
+                      onChange={(_, newValue) => setSelectedDept(newValue)}
+                      inputValue={deptInput}
+                      onInputChange={(_, newInputValue) => setDeptInput(newInputValue)}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Type Department (e.g. Cardiology)..."
+                          size="small"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '16px',
+                              backgroundColor: '#F8FAFC',
+                              fontSize: '13px',
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+
+                {/* Active Filter Summary Badges */}
+                {hasSelectedFilters && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-bold text-slate-500">Active Criteria:</span>
+                    {selectedArea && (
+                      <span className="px-3 py-1 bg-teal-50 text-teal-800 rounded-full font-semibold flex items-center gap-1">
+                        <LocationOn style={{ fontSize: 14 }} /> Area: {selectedArea}
+                      </span>
+                    )}
+                    {selectedHospital && (
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full font-semibold flex items-center gap-1">
+                        <LocalHospital style={{ fontSize: 14 }} /> Hospital: {selectedHospital.name}
+                      </span>
+                    )}
+                    {selectedDept && (
+                      <span className="px-3 py-1 bg-indigo-50 text-indigo-800 rounded-full font-semibold flex items-center gap-1">
+                        <Category style={{ fontSize: 14 }} /> Dept: {selectedDept}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Filtered Doctor Results inside Card */}
+                {hasSelectedFilters && (
+                  <div className="mt-8 pt-6 border-t border-slate-200/80">
+                    <div className="flex items-center justify-between mb-5">
+                      <div>
+                        <h3 className="text-lg font-extrabold text-slate-900">
+                          Matching Doctors ({filteredDoctorsData?.length || 0})
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Verified physicians matching your chosen criteria
+                        </p>
+                      </div>
+
+                      <Link
+                        to={`/doctors?${selectedArea ? `area=${encodeURIComponent(selectedArea)}&` : ''}${selectedHospital ? `hospital=${encodeURIComponent(selectedHospital.id)}&` : ''}${selectedDept ? `department=${encodeURIComponent(selectedDept)}` : ''}`}
+                        className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 hover:underline"
+                      >
+                        View in Full Directory <ArrowForward style={{ fontSize: 14 }} />
+                      </Link>
+                    </div>
+
+                    {isLoadingDoctors && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-6">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="bg-slate-50 rounded-2xl p-4 animate-pulse space-y-3">
+                            <div className="w-14 h-14 bg-slate-200 rounded-2xl" />
+                            <div className="h-4 bg-slate-200 rounded w-3/4" />
+                            <div className="h-3 bg-slate-200 rounded w-1/2" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {!isLoadingDoctors && filteredDoctorsData && filteredDoctorsData.length > 0 && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                        {filteredDoctorsData.map((doc: Doctor) => (
+                          <DoctorCard key={doc.id} doctor={doc} onBook={(d) => setBookingDoctor(d)} />
+                        ))}
+                      </div>
+                    )}
+
+                    {!isLoadingDoctors && (!filteredDoctorsData || filteredDoctorsData.length === 0) && (
+                      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                        <Person className="text-slate-400 mx-auto mb-2" style={{ fontSize: 32 }} />
+                        <div className="text-sm font-bold text-slate-800 mb-1">No doctors found for this combination</div>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto mb-4">
+                          Try clearing one of the filters or searching across nearby hospital branches.
+                        </p>
+                        <button
+                          onClick={clearDropdownFilters}
+                          className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors"
+                        >
+                          Clear Filter Criteria
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -506,7 +544,7 @@ export default function HomePage() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {featuredDoctors && featuredDoctors.length > 0 ? (
             featuredDoctors.map((doc: Doctor) => (
               <DoctorCard key={doc.id} doctor={doc} onBook={(d) => setBookingDoctor(d)} />

@@ -94,10 +94,10 @@ class HospitalViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'nearby', 'departments', 'doctors', 'branches', 'locations']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def locations(self, request):
         areas = list(Hospital.objects.filter(status='active').exclude(area='').values_list('area', flat=True).distinct())
         cities = list(Hospital.objects.filter(status='active').exclude(city='').values_list('city', flat=True).distinct())
@@ -106,7 +106,7 @@ class HospitalViewSet(viewsets.ModelViewSet):
             'cities': sorted(list(set(filter(None, cities)))),
         })
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def nearby(self, request):
         try:
             lat = float(request.query_params.get('lat', 0))
@@ -130,19 +130,19 @@ class HospitalViewSet(viewsets.ModelViewSet):
         results.sort(key=lambda x: getattr(x, '_distance_km', 99999))
         return Response({'results': HospitalSerializer(results, many=True).data, 'count': len(results)})
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def departments(self, request, pk=None):
         hospital = self.get_object()
         depts = hospital.departments.filter(status='active')
         return Response(DepartmentSerializer(depts, many=True).data)
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def branches(self, request, pk=None):
         hospital = self.get_object()
         branches = hospital.branches.filter(status='active')
         return Response(HospitalBranchSerializer(branches, many=True).data)
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def doctors(self, request, pk=None):
         hospital = self.get_object()
         doctor_ids = DoctorHospital.objects.filter(hospital=hospital, status='active').values_list('doctor_id', flat=True)
@@ -161,7 +161,7 @@ class HospitalBranchViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
 
@@ -174,15 +174,15 @@ class DepartmentViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'doctors', 'common']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def common(self, request):
         dept_names = list(Department.objects.filter(status='active').exclude(name='').values_list('name', flat=True).distinct())
         return Response(sorted(list(set(filter(None, dept_names)))))
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def doctors(self, request, pk=None):
         department = self.get_object()
         doctor_ids = DoctorHospital.objects.filter(department=department, status='active').values_list('doctor_id', flat=True)
@@ -202,10 +202,10 @@ class SpecialistViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'doctors']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def doctors(self, request, pk=None):
         specialist = self.get_object()
         doctors = specialist.doctors.filter(is_active=True).prefetch_related(
@@ -232,16 +232,16 @@ class DoctorViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve', 'schedule', 'leave']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def schedule(self, request, pk=None):
         doctor = self.get_object()
         schedules = doctor.schedules.filter(status='active')
         return Response(DoctorScheduleSerializer(schedules, many=True).data)
 
-    @action(detail=True, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=True, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def leave(self, request, pk=None):
         doctor = self.get_object()
         leaves = doctor.leaves.filter(status='active')
@@ -256,7 +256,7 @@ class DoctorScheduleViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
 
@@ -268,7 +268,7 @@ class DoctorLeaveViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]
+            return [permissions.IsAuthenticated()]
         return [IsAdminRole()]
 
 

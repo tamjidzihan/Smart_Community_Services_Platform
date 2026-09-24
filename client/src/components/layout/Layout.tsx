@@ -33,6 +33,9 @@ import {
   LocalPharmacy,
   CalendarMonth,
   Search,
+  AdminPanelSettings,
+  People,
+  MedicalServices,
 } from '@mui/icons-material'
 import { useAuthStore, useNotificationStore } from '../../store/authStore'
 import { authApi } from '../../api/services'
@@ -49,11 +52,13 @@ export default function Layout() {
   useNotificationWS()
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAuthenticated, user, logout } = useAuthStore()
+  const { isAuthenticated, user, logout, hasRole } = useAuthStore()
   const { unreadCount } = useNotificationStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [navSearch, setNavSearch] = useState('')
+
+  const isAdmin = user?.is_staff || user?.is_superuser || hasRole('admin') || hasRole('moderator')
 
   const handleNavSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,13 +91,15 @@ export default function Layout() {
         }}
       >
         <Toolbar sx={{ gap: 1, minHeight: { xs: 64, md: 72 }, px: { xs: 2, sm: 4, lg: 6 } }}>
-          <IconButton
-            sx={{ display: { md: 'none' }, color: '#0F172A' }}
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open menu"
-          >
-            <MenuIcon />
-          </IconButton>
+          {isAuthenticated && (
+            <IconButton
+              sx={{ display: { md: 'none' }, color: '#0F172A' }}
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
 
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -122,48 +129,52 @@ export default function Layout() {
           </Link>
 
           {/* Desktop Navigation */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, ml: 3, flex: 1, alignItems: 'center' }}>
-            {NAV_ITEMS.map((item) => (
-              <Button
-                key={item.path}
-                component={Link}
-                to={item.path}
-                size="small"
-                sx={{
-                  color: isActive(item.path) ? '#0D9488' : '#64748B',
-                  fontWeight: isActive(item.path) ? 700 : 600,
-                  bgcolor: isActive(item.path) ? '#F0FDFA' : 'transparent',
-                  borderRadius: 2.5,
-                  px: 1.75,
-                  py: 0.8,
-                  fontSize: '0.85rem',
-                  textTransform: 'none',
-                  '&:hover': {
-                    bgcolor: '#F8FAFC',
-                    color: '#0F172A',
-                  },
-                }}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </Box>
+          {isAuthenticated && (
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, ml: 3, flex: 1, alignItems: 'center' }}>
+              {NAV_ITEMS.map((item) => (
+                <Button
+                  key={item.path}
+                  component={Link}
+                  to={item.path}
+                  size="small"
+                  sx={{
+                    color: isActive(item.path) ? '#0D9488' : '#64748B',
+                    fontWeight: isActive(item.path) ? 700 : 600,
+                    bgcolor: isActive(item.path) ? '#F0FDFA' : 'transparent',
+                    borderRadius: 2.5,
+                    px: 1.75,
+                    py: 0.8,
+                    fontSize: '0.85rem',
+                    textTransform: 'none',
+                    '&:hover': {
+                      bgcolor: '#F8FAFC',
+                      color: '#0F172A',
+                    },
+                  }}
+                >
+                  {item.label}
+                </Button>
+              ))}
+            </Box>
+          )}
 
           {/* Navbar Search: Find Care */}
-          <form
-            onSubmit={handleNavSearch}
-            className="hidden lg:flex items-center relative mr-3"
-            style={{ width: 220 }}
-          >
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: 18 }} />
-            <input
-              type="text"
-              placeholder="Search doctors, care..."
-              value={navSearch}
-              onChange={(e) => setNavSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 focus:bg-white text-slate-900 placeholder-slate-400 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all shadow-2xs"
-            />
-          </form>
+          {isAuthenticated && (
+            <form
+              onSubmit={handleNavSearch}
+              className="hidden lg:flex items-center relative mr-3"
+              style={{ width: 220 }}
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: 18 }} />
+              <input
+                type="text"
+                placeholder="Search doctors, care..."
+                value={navSearch}
+                onChange={(e) => setNavSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 focus:bg-white text-slate-900 placeholder-slate-400 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all shadow-2xs"
+              />
+            </form>
+          )}
 
           {/* Right Actions */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: { xs: 'auto', lg: 0 } }}>
@@ -226,6 +237,30 @@ export default function Layout() {
                     <ListItemIcon><Person fontSize="small" sx={{ color: '#64748B' }} /></ListItemIcon>
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>Profile</Typography>
                   </MenuItem>
+
+                  {isAdmin && (
+                    <>
+                      <Divider sx={{ my: 1 }} />
+                      <Box sx={{ px: 2, py: 0.5 }}>
+                        <Typography sx={{ fontSize: '0.6875rem', fontWeight: 800, color: '#0D9488', letterSpacing: '0.05em' }}>
+                          ADMINISTRATION
+                        </Typography>
+                      </Box>
+                      <MenuItem component={Link} to="/admin/healthcare" onClick={() => setAnchorEl(null)} sx={{ borderRadius: 2, my: 0.5 }}>
+                        <ListItemIcon><MedicalServices fontSize="small" sx={{ color: '#0D9488' }} /></ListItemIcon>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>Doctors & Hospitals</Typography>
+                      </MenuItem>
+                      <MenuItem component={Link} to="/admin/users" onClick={() => setAnchorEl(null)} sx={{ borderRadius: 2, my: 0.5 }}>
+                        <ListItemIcon><People fontSize="small" sx={{ color: '#6366F1' }} /></ListItemIcon>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>User Management</Typography>
+                      </MenuItem>
+                      <MenuItem component={Link} to="/admin/dashboard" onClick={() => setAnchorEl(null)} sx={{ borderRadius: 2, my: 0.5 }}>
+                        <ListItemIcon><AdminPanelSettings fontSize="small" sx={{ color: '#0F172A' }} /></ListItemIcon>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>Admin Dashboard</Typography>
+                      </MenuItem>
+                    </>
+                  )}
+
                   <Divider sx={{ my: 1 }} />
                   <MenuItem onClick={handleLogout} sx={{ borderRadius: 2, color: '#DC2626' }}>
                     <ListItemIcon><Logout fontSize="small" sx={{ color: '#DC2626' }} /></ListItemIcon>
@@ -267,64 +302,117 @@ export default function Layout() {
       </AppBar>
 
       {/* Mobile Drawer */}
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        slotProps={{ paper: { sx: { width: 280, p: 2 } } }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-          <Box
-            sx={{
-              width: 36,
-              height: 36,
-              borderRadius: 2.5,
-              background: 'linear-gradient(135deg, #0D9488, #0F766E)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-            }}
-          >
-            <LocalHospital sx={{ fontSize: 20 }} />
-          </Box>
-          <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 16 }}>
-            Smart Health
-          </Typography>
-        </Box>
-
-        {/* Mobile Search */}
-        <form onSubmit={handleNavSearch} className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: 18 }} />
-          <input
-            type="text"
-            placeholder="Search doctors, hospitals..."
-            value={navSearch}
-            onChange={(e) => setNavSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs font-medium bg-slate-100 text-slate-900 placeholder-slate-400 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          />
-        </form>
-
-        <List>
-          {NAV_ITEMS.map((item) => (
-            <ListItem
-              key={item.path}
-              component={Link}
-              to={item.path}
-              onClick={() => setDrawerOpen(false)}
+      {isAuthenticated && (
+        <Drawer
+          anchor="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          slotProps={{ paper: { sx: { width: 280, p: 2 } } }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+            <Box
               sx={{
+                width: 36,
+                height: 36,
                 borderRadius: 2.5,
-                mb: 0.5,
-                bgcolor: isActive(item.path) ? '#F0FDFA' : 'transparent',
-                color: isActive(item.path) ? '#0D9488' : '#475569',
+                background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
               }}
             >
-              <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: 600, fontSize: '0.875rem' } } }} />
-            </ListItem>
-          ))}
-        </List>
-      </Drawer>
+              <LocalHospital sx={{ fontSize: 20 }} />
+            </Box>
+            <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 16 }}>
+              Smart Health
+            </Typography>
+          </Box>
+
+          {/* Mobile Search */}
+          <form onSubmit={handleNavSearch} className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: 18 }} />
+            <input
+              type="text"
+              placeholder="Search doctors, hospitals..."
+              value={navSearch}
+              onChange={(e) => setNavSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-xs font-medium bg-slate-100 text-slate-900 placeholder-slate-400 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            />
+          </form>
+
+          <List>
+            {NAV_ITEMS.map((item) => (
+              <ListItem
+                key={item.path}
+                component={Link}
+                to={item.path}
+                onClick={() => setDrawerOpen(false)}
+                sx={{
+                  borderRadius: 2.5,
+                  mb: 0.5,
+                  bgcolor: isActive(item.path) ? '#F0FDFA' : 'transparent',
+                  color: isActive(item.path) ? '#0D9488' : '#475569',
+                }}
+              >
+                <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}>{item.icon}</ListItemIcon>
+                <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: 600, fontSize: '0.875rem' } } }} />
+              </ListItem>
+            ))}
+
+            {isAdmin && (
+              <>
+                <Divider sx={{ my: 1.5 }} />
+                <Typography sx={{ px: 2, py: 0.5, fontSize: '0.6875rem', fontWeight: 800, color: '#0D9488', letterSpacing: '0.05em' }}>
+                  ADMINISTRATION
+                </Typography>
+                <ListItem
+                  component={Link}
+                  to="/admin/healthcare"
+                  onClick={() => setDrawerOpen(false)}
+                  sx={{
+                    borderRadius: 2.5,
+                    mb: 0.5,
+                    bgcolor: isActive('/admin/healthcare') ? '#F0FDFA' : 'transparent',
+                    color: isActive('/admin/healthcare') ? '#0D9488' : '#475569',
+                  }}
+                >
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}><MedicalServices /></ListItemIcon>
+                  <ListItemText primary="Doctors & Hospitals" slotProps={{ primary: { sx: { fontWeight: 600, fontSize: '0.875rem' } } }} />
+                </ListItem>
+                <ListItem
+                  component={Link}
+                  to="/admin/users"
+                  onClick={() => setDrawerOpen(false)}
+                  sx={{
+                    borderRadius: 2.5,
+                    mb: 0.5,
+                    bgcolor: isActive('/admin/users') ? '#F0FDFA' : 'transparent',
+                    color: isActive('/admin/users') ? '#0D9488' : '#475569',
+                  }}
+                >
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}><People /></ListItemIcon>
+                  <ListItemText primary="User Management" slotProps={{ primary: { sx: { fontWeight: 600, fontSize: '0.875rem' } } }} />
+                </ListItem>
+                <ListItem
+                  component={Link}
+                  to="/admin/dashboard"
+                  onClick={() => setDrawerOpen(false)}
+                  sx={{
+                    borderRadius: 2.5,
+                    mb: 0.5,
+                    bgcolor: isActive('/admin/dashboard') ? '#F0FDFA' : 'transparent',
+                    color: isActive('/admin/dashboard') ? '#0D9488' : '#475569',
+                  }}
+                >
+                  <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}><AdminPanelSettings /></ListItemIcon>
+                  <ListItemText primary="Admin Dashboard" slotProps={{ primary: { sx: { fontWeight: 600, fontSize: '0.875rem' } } }} />
+                </ListItem>
+              </>
+            )}
+          </List>
+        </Drawer>
+      )}
 
       {/* Page Content */}
       <AnimatePresence mode="wait">
@@ -334,14 +422,15 @@ export default function Layout() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -8 }}
           transition={{ duration: 0.2 }}
-          style={{ flex: 1 }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
         >
           <Outlet />
         </motion.main>
       </AnimatePresence>
 
-      {/* Footer */}
-      <Box component="footer" sx={{ bgcolor: '#0F172A', color: '#94A3B8', pt: 8, pb: 4, mt: 'auto' }}>
+      {/* Footer - hidden on dedicated full-screen app pages like AI Assistant */}
+      {location.pathname !== '/ai-assistant' && (
+        <Box component="footer" sx={{ bgcolor: '#0F172A', color: '#94A3B8', pt: 8, pb: 4, mt: 'auto' }}>
         <Box sx={{ maxWidth: 1200, mx: 'auto', px: 4 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr 1fr' }, gap: 4, mb: 6 }}>
             {/* Brand */}
@@ -406,6 +495,7 @@ export default function Layout() {
           </Box>
         </Box>
       </Box>
+      )}
     </Box>
   )
 }

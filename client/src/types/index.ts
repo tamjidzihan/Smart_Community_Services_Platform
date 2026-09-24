@@ -317,6 +317,8 @@ export interface BloodRequest {
   id: string
   requester: string
   requester_name: string
+  requester_phone?: string
+  requester_email?: string
   blood_group: BloodGroup
   units_needed: number
   units_fulfilled: number

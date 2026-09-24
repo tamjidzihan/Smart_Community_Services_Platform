@@ -35,16 +35,22 @@ class BloodDonorWriteSerializer(serializers.ModelSerializer):
 
 class BloodRequestSerializer(serializers.ModelSerializer):
     requester_name = serializers.CharField(source='requester.profile.full_name', read_only=True)
+    requester_phone = serializers.CharField(source='requester.profile.phone', read_only=True)
+    requester_email = serializers.CharField(source='requester.email', read_only=True)
     requester = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = BloodRequest
         fields = [
-            'id', 'requester', 'requester_name', 'blood_group', 'units_needed', 'units_fulfilled',
+            'id', 'requester', 'requester_name', 'requester_phone', 'requester_email',
+            'blood_group', 'units_needed', 'units_fulfilled',
             'hospital_name', 'patient_name', 'urgency', 'status',
             'latitude', 'longitude', 'notes', 'created_at', 'resolved_at',
         ]
-        read_only_fields = ['id', 'requester', 'units_fulfilled', 'status', 'requester_name', 'created_at']
+        read_only_fields = [
+            'id', 'requester', 'units_fulfilled', 'status', 'requester_name',
+            'requester_phone', 'requester_email', 'created_at'
+        ]
 
 
 # ─── Views ───────────────────────────────────────────────────────────────────
@@ -75,7 +81,7 @@ class BloodDonorViewSet(viewsets.ModelViewSet):
             profile.save()
         serializer.save(user=self.request.user)
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny])
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def search(self, request):
         blood_group = request.query_params.get('group', '')
         try:
@@ -151,7 +157,7 @@ class BloodRequestViewSet(viewsets.ModelViewSet):
         except Exception:
             pass
 
-    @action(detail=False, methods=['get'], permission_classes=[permissions.AllowAny], url_path='active')
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated], url_path='active')
     def active_requests(self, request):
         qs = BloodRequest.objects.filter(
             status__in=['open', 'partially_fulfilled']
