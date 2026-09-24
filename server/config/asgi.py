@@ -9,15 +9,13 @@ django_asgi_app = get_asgi_application()
 
 from apps.notifications.middleware import JWTAuthMiddleware
 from apps.notifications import routing as notification_routing
-from apps.ambulance import routing as ambulance_routing
 
 application = ProtocolTypeRouter({
     'http': django_asgi_app,
     'websocket': AllowedHostsOriginValidator(
         JWTAuthMiddleware(
             URLRouter(
-                notification_routing.websocket_urlpatterns +
-                ambulance_routing.websocket_urlpatterns
+                notification_routing.websocket_urlpatterns
             )
         )
     ),

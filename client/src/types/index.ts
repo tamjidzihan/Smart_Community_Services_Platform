@@ -3,9 +3,14 @@ export interface User {
   id: string
   email: string
   is_email_verified: boolean
+  is_active?: boolean
   is_staff?: boolean
   is_superuser?: boolean
   date_joined: string
+  last_login?: string | null
+  full_name?: string
+  phone?: string
+  avatar_url?: string
   profile: UserProfile
   roles: Role[]
 }
@@ -77,66 +82,219 @@ export interface ServiceAvailability {
 }
 
 // ─── Healthcare ───────────────────────────────────────────────────────────────
+export interface Specialist {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  icon?: string
+  image_url?: string
+  status: 'active' | 'inactive'
+  doctors_count?: number
+}
+
+export interface HospitalBranch {
+  id: string
+  hospital: string
+  hospital_name?: string
+  name: string
+  address: string
+  phone?: string
+  telephones?: string
+  division?: string
+  district?: string
+  city?: string
+  area?: string
+  latitude?: number | null
+  longitude?: number | null
+  opening_hours?: string
+  status: 'active' | 'inactive'
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Department {
+  id: string
+  hospital: string
+  hospital_name?: string
+  name: string
+  slug: string
+  description?: string
+  icon?: string
+  image_url?: string
+  status: 'active' | 'inactive'
+  average_rating: number
+  review_count: number
+  doctors_count?: number
+  created_at?: string
+}
+
 export interface Hospital {
   id: string
   name: string
-  category: string
+  slug: string
+  logo?: string
+  cover_image?: string
+  description?: string
+  hospital_type: 'general' | 'specialized' | 'clinic' | 'diagnostic' | 'dental' | 'eye' | 'maternity' | 'tertiary'
+  phone?: string
+  emergency_phone?: string
+  email?: string
+  website?: string
   address: string
-  latitude: number | null
-  longitude: number | null
-  phone: string
-  email: string
-  website: string
+  division?: string
+  district?: string
+  city?: string
+  area?: string
+  latitude?: number | null
+  longitude?: number | null
   emergency_available: boolean
+  open_24_hours: boolean
+  ambulance_available: boolean
   bed_count: number
   available_beds: number
-  description: string
-  image_url: string
+  established_year?: number | null
   is_verified: boolean
+  status: 'active' | 'inactive' | 'pending'
   average_rating: number
-  doctors_count: number
-  distance_km: number | null
+  review_count: number
+  branches_count?: number
+  departments_count?: number
+  doctors_count?: number
+  distance_km?: number | null
+  branches?: HospitalBranch[]
+  departments?: Department[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface DoctorHospitalAffiliation {
+  id: string
+  doctor: string
+  hospital: string
+  hospital_name: string
+  hospital_slug: string
+  hospital_logo?: string
+  department?: string | null
+  department_name?: string | null
+  department_slug?: string | null
+  position?: string
+  status: 'active' | 'inactive'
+}
+
+export interface DoctorBranchAffiliation {
+  id: string
+  doctor: string
+  branch: string
+  branch_name: string
+  hospital_name: string
+  branch_city?: string
+  branch_address?: string
+  room_number?: string
+  status: 'active' | 'inactive'
+}
+
+export interface DoctorSchedule {
+  id: string
+  doctor: string
+  hospital?: string | null
+  hospital_name?: string | null
+  branch?: string | null
+  branch_name?: string | null
+  department?: string | null
+  department_name?: string | null
+  day_of_week: number
+  day_name: string
+  start_time: string
+  end_time: string
+  appointment_type: 'general' | 'follow_up' | 'emergency' | 'specialist'
+  maximum_appointments: number
+  status: 'active' | 'inactive'
+  is_overnight: boolean
+  created_at?: string
+}
+
+export interface DoctorLeave {
+  id: string
+  doctor: string
+  branch?: string | null
+  branch_name?: string | null
+  start_date: string
+  end_date: string
+  message: string
+  status: 'active' | 'cancelled' | 'completed'
+  is_active: boolean
+  created_at?: string
+}
+
+export interface DoctorAvailability {
+  status: 'AVAILABLE_TODAY' | 'ON_LEAVE' | 'NOT_SCHEDULED_TODAY' | 'INACTIVE'
+  label: string
+  is_available: boolean
+  message: string
+  leave_from?: string
+  leave_to?: string
 }
 
 export interface Doctor {
   id: string
   full_name: string
-  specialization: string
-  phone: string
-  email: string
-  bio: string
-  avatar_url: string
-  consultation_fee: number | null
-  is_available: boolean
+  profile_image?: string
+  gender?: 'male' | 'female' | 'other' | ''
+  mobile?: string
+  email?: string
+  professional_summary?: string
+  degree_summary: string
+  experience_summary?: string
+  current_position: string
+  education?: string
+  previous_experience?: string
+  specialists: Specialist[]
+  appointment_number?: string
+  friday_reservation_information?: string
+  additional_information?: string
+  consultation_fee?: number | null
+  is_active: boolean
+  is_verified: boolean
   average_rating: number
-  hospital: string
-  hospital_name: string
-  schedules: DoctorSchedule[]
-}
-
-export interface DoctorSchedule {
-  id: number
-  day_of_week: number
-  day_name: string
-  start_time: string
-  end_time: string
-  max_appointments: number
-  is_available: boolean
+  review_count: number
+  hospital_affiliations: DoctorHospitalAffiliation[]
+  branch_affiliations: DoctorBranchAffiliation[]
+  availability: DoctorAvailability
+  schedules?: DoctorSchedule[]
+  leaves?: DoctorLeave[]
+  created_at?: string
 }
 
 export interface Appointment {
   id: string
+  citizen?: string
+  citizen_name?: string
+  citizen_email?: string
   doctor: string
   doctor_name: string
-  doctor_specialization: string
-  hospital: string
-  hospital_name: string
-  citizen_name: string
+  doctor_degrees?: string
+  doctor_specialization?: string
+  hospital?: string | null
+  hospital_name?: string | null
+  branch?: string | null
+  branch_name?: string | null
+  department?: string | null
+  department_name?: string | null
   scheduled_at: string
+  appointment_type: 'general' | 'follow_up' | 'emergency' | 'specialist'
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled' | 'no_show'
   reason: string
-  notes: string
+  notes?: string
   created_at: string
+  updated_at?: string
+}
+
+export interface HealthcareSearchResults {
+  hospitals: Hospital[]
+  doctors: Doctor[]
+  departments: Department[]
+  specialists: Specialist[]
 }
 
 // ─── Blood ────────────────────────────────────────────────────────────────────

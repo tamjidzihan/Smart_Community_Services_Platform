@@ -50,13 +50,8 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     'apps.accounts',
-    'apps.services',
     'apps.healthcare',
     'apps.blood',
-    'apps.ambulance',
-    'apps.education',
-    'apps.ngo',
-    'apps.government',
     'apps.reviews',
     'apps.notifications',
     'apps.ai_assistant',
@@ -174,7 +169,7 @@ REST_FRAMEWORK = {
         'rest_framework.filters.OrderingFilter',
     ],
     'DEFAULT_PAGINATION_CLASS': 'utils.pagination.StandardPagination',
-    'PAGE_SIZE': 20,
+    'PAGE_SIZE': 12,
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',

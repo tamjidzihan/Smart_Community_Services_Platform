@@ -11,10 +11,8 @@ from utils.permissions import IsAdminRole
 @permission_classes([IsAdminRole])
 def dashboard_summary(request):
     from django.contrib.auth import get_user_model
-    from apps.healthcare.models import Appointment
+    from apps.healthcare.models import Appointment, Doctor, Hospital
     from apps.blood.models import BloodRequest, BloodDonor
-    from apps.ambulance.models import EmergencyRequest
-    from apps.services.models import ServiceListing
 
     User = get_user_model()
     now = timezone.now()
@@ -24,7 +22,8 @@ def dashboard_summary(request):
     total_users = User.objects.count()
     total_appointments = Appointment.objects.count()
     total_blood_requests = BloodRequest.objects.count()
-    total_emergencies = EmergencyRequest.objects.count()
+    total_doctors = Doctor.objects.count()
+    total_hospitals = Hospital.objects.count()
 
     # Recent users (last 5)
     recent_users_qs = User.objects.select_related('profile').prefetch_related('roles').order_by('-date_joined')[:5]
@@ -41,20 +40,12 @@ def dashboard_summary(request):
             'is_email_verified': u.is_email_verified,
         })
 
-    # Try to get total services (may not exist)
-    try:
-        total_services = ServiceListing.objects.count()
-    except Exception:
-        total_services = 0
-
     return Response({
-        # Flat totals for easy access
         'total_users': total_users,
         'total_appointments': total_appointments,
         'total_blood_requests': total_blood_requests,
-        'total_emergencies': total_emergencies,
-        'total_services': total_services,
-        # Nested breakdowns
+        'total_doctors': total_doctors,
+        'total_hospitals': total_hospitals,
         'users': {
             'total': total_users,
             'new_today': User.objects.filter(date_joined__date=today).count(),
@@ -72,10 +63,9 @@ def dashboard_summary(request):
             'total_donors': BloodDonor.objects.count(),
             'available_donors': BloodDonor.objects.filter(is_available=True).count(),
         },
-        'emergencies': {
-            'total': total_emergencies,
-            'active': EmergencyRequest.objects.filter(status__in=['pending', 'dispatched', 'en_route']).count(),
-            'resolved_today': EmergencyRequest.objects.filter(resolved_at__date=today).count(),
+        'healthcare': {
+            'doctors_count': total_doctors,
+            'hospitals_count': total_hospitals,
         },
         'recent_users': recent_users,
     })
@@ -128,14 +118,3 @@ def blood_stats(request):
         'total_donors': BloodDonor.objects.count(),
         'available_donors': BloodDonor.objects.filter(is_available=True).count(),
     })
-
-
-@api_view(['GET'])
-@permission_classes([IsAdminRole])
-def emergency_stats(request):
-    from apps.ambulance.models import EmergencyRequest
-    from django.db.models import Count
-    by_type = list(EmergencyRequest.objects.values('request_type').annotate(count=Count('id')))
-    by_status = list(EmergencyRequest.objects.values('status').annotate(count=Count('id')))
-    return Response({'by_type': by_type, 'by_status': by_status})
-

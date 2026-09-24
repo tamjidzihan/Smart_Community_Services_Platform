@@ -192,7 +192,7 @@ export default function AdminAmbulancePage() {
                   Available Right Now
                 </Typography>
                 <Typography variant="h3" sx={{ mt: 0.5, fontWeight: 800, color: 'success.main' }}>
-                  {ambulances.filter(a => a.status === 'available').length}
+                  {ambulances.filter((a: any) => a.status === 'available').length}
                 </Typography>
               </CardContent>
             </Card>
@@ -204,7 +204,7 @@ export default function AdminAmbulancePage() {
                   Active Dispatches
                 </Typography>
                 <Typography variant="h3" sx={{ mt: 0.5, fontWeight: 800, color: 'info.main' }}>
-                  {ambulances.filter(a => ['en_route', 'at_scene', 'transporting'].includes(a.status)).length}
+                  {ambulances.filter((a: any) => ['en_route', 'at_scene', 'transporting'].includes(a.status)).length}
                 </Typography>
               </CardContent>
             </Card>
@@ -246,7 +246,7 @@ export default function AdminAmbulancePage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {ambulances.map((amb) => {
+                  {ambulances.map((amb: any) => {
                     const matchedStatus = STATUS_CHOICES.find(s => s.value === amb.status)
                     const statusLabel = matchedStatus?.label || amb.status
                     const statusColor = matchedStatus?.color || 'default'

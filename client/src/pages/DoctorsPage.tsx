@@ -1,556 +1,363 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import {
-  Container, Typography, Box, Grid, Card, CardContent, TextField, Button, Avatar,
-  Chip, Rating, CircularProgress, Alert, Paper, Dialog, DialogTitle, DialogContent,
-  DialogActions, InputAdornment, Divider, IconButton, Tooltip, Stack,
-  FormControl, InputLabel, Select, MenuItem,
-} from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
-import EventAvailableIcon from '@mui/icons-material/EventAvailable'
-import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
-import ViewModuleIcon from '@mui/icons-material/ViewModule'
-import ViewListIcon from '@mui/icons-material/ViewList'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { healthcareApi } from '../api/services'
-import { useAuthStore } from '../store/authStore'
-import { useNavigate } from 'react-router-dom'
-
-import AddIcon from '@mui/icons-material/Add'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import AdminAddEntityModal from '../components/admin/AdminAddEntityModal'
+  Search,
+  FilterList,
+  Clear,
+  Person,
+  Star,
+  EventAvailable,
+} from '@mui/icons-material'
+import { CircularProgress } from '@mui/material'
+import { doctorApi, specialistApi, hospitalApi } from '../api/services'
+import { DoctorCard } from '../components/healthcare/DoctorCard'
+import { AppointmentBookingModal } from '../components/healthcare/AppointmentBookingModal'
 import type { Doctor } from '../types'
 
 export default function DoctorsPage() {
-  const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
-  const [scheduledAt, setScheduledAt] = useState('')
-  const [reason, setReason] = useState('')
-  const [bookingSuccess, setBookingSuccess] = useState(false)
-  const [openAddModal, setOpenAddModal] = useState(false)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null)
-  const [doctorToDelete, setDoctorToDelete] = useState<Doctor | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedSpecialist, setSelectedSpecialist] = useState('')
+  const [selectedHospital, setSelectedHospital] = useState('')
+  const [selectedGender, setSelectedGender] = useState('')
+  const [availableTodayOnly, setAvailableTodayOnly] = useState(false)
+  const [minRating, setMinRating] = useState<number | ''>('')
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
+  const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null)
 
-  // Form states
-  const [fullName, setFullName] = useState('')
-  const [specialization, setSpecialization] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [bio, setBio] = useState('')
-  const [consultationFee, setConsultationFee] = useState('')
-  const [isAvailable, setIsAvailable] = useState(true)
-  const [formError, setFormError] = useState('')
-
-  const { isAuthenticated, hasRole } = useAuthStore()
-  const canAdd = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
-  const canEdit = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
-  const navigate = useNavigate()
-
-  // View mode state: 'grid' or 'list'
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-
-  const { data: doctorsData, isLoading, error } = useQuery({
-    queryKey: ['doctors', search],
+  // Fetch Specialists for dropdown
+  const { data: specialistsData } = useQuery({
+    queryKey: ['specialists'],
     queryFn: async () => {
-      const res = await healthcareApi.getDoctors({ search })
+      const res = await specialistApi.getSpecialists({ page_size: 100 })
+      return res.data?.results || res.data || []
+    },
+  })
+
+  // Fetch Hospitals for filtering
+  const { data: hospitalsData } = useQuery({
+    queryKey: ['hospitals-list'],
+    queryFn: async () => {
+      const res = await hospitalApi.getHospitals({ status: 'active', page_size: 100 })
+      return res.data?.results || res.data || []
+    },
+  })
+
+  // Paginated Doctors Query (12 per page from backend)
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+  } = useInfiniteQuery({
+    queryKey: ['doctors', selectedSpecialist, selectedHospital, selectedGender, minRating, searchTerm],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params: Record<string, any> = { page: pageParam, page_size: 12 }
+      if (selectedSpecialist) params.specialist = selectedSpecialist
+      if (selectedHospital) params.hospital = selectedHospital
+      if (selectedGender) params.gender = selectedGender
+      if (minRating) params.min_rating = minRating
+      if (searchTerm.trim()) params.search = searchTerm.trim()
+
+      const res = await doctorApi.getDoctors(params)
       return res.data
     },
-  })
-
-  const bookMutation = useMutation({
-    mutationFn: (data: { doctor: string; scheduled_at: string; reason: string }) =>
-      healthcareApi.bookAppointment(data),
-    onSuccess: () => {
-      setBookingSuccess(true)
-      setSelectedDoctor(null)
-      setScheduledAt('')
-      setReason('')
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: any) => {
+      if (lastPage?.next && lastPage.current_page < lastPage.total_pages) {
+        return lastPage.current_page + 1
+      }
+      return undefined
     },
   })
 
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Doctor> }) =>
-      healthcareApi.updateDoctor(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['doctors'] })
-      handleCloseEditDialog()
-    },
-    onError: (err: any) => {
-      setFormError(err.response?.data?.detail || err.message || 'Failed to update doctor')
-    },
-  })
+  const allDoctors = useMemo(() => {
+    if (!data?.pages) return []
+    return data.pages.flatMap((p: any) => p?.results || [])
+  }, [data])
 
-  const deleteMutation = useMutation({
-    mutationFn: healthcareApi.deleteDoctor,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['doctors'] })
-      setDeleteConfirmOpen(false)
-      setDoctorToDelete(null)
-    },
-  })
+  const totalCount = data?.pages?.[0]?.count ?? allDoctors.length
 
-  const handleOpenBooking = (doc: any) => {
-    if (!isAuthenticated) {
-      navigate('/login')
-      return
+  const doctorsList: Doctor[] = useMemo(() => {
+    if (availableTodayOnly) {
+      return allDoctors.filter((d: Doctor) => d.availability?.status === 'AVAILABLE_TODAY')
     }
-    setSelectedDoctor(doc)
-    setBookingSuccess(false)
-  }
+    return allDoctors
+  }, [allDoctors, availableTodayOnly])
 
-  const handleOpenEditDialog = (doc: Doctor) => {
-    setEditingDoctor(doc)
-    setFullName(doc.full_name)
-    setSpecialization(doc.specialization)
-    setPhone(doc.phone || '')
-    setEmail(doc.email || '')
-    setBio(doc.bio || '')
-    setConsultationFee(doc.consultation_fee ? String(doc.consultation_fee) : '')
-    setIsAvailable(doc.is_available)
-    setFormError('')
-    setEditDialogOpen(true)
-  }
+  const hasActiveFilters = Boolean(
+    selectedSpecialist || selectedHospital || selectedGender || minRating || availableTodayOnly || searchTerm
+  )
 
-  const handleCloseEditDialog = () => {
-    setEditDialogOpen(false)
-    setEditingDoctor(null)
-    setFormError('')
-  }
-
-  const handleSaveEdit = () => {
-    if (!editingDoctor) return
-    if (!fullName.trim() || !specialization.trim()) {
-      setFormError('Full name and specialization are required')
-      return
-    }
-    updateMutation.mutate({
-      id: editingDoctor.id,
-      data: {
-        full_name: fullName,
-        specialization,
-        phone: phone || undefined,
-        email: email || undefined,
-        bio: bio || undefined,
-        consultation_fee: consultationFee ? Number(consultationFee) : null,
-        is_available: isAvailable,
-      },
-    })
-  }
-
-  const handleOpenDeleteConfirm = (doc: Doctor) => {
-    setDoctorToDelete(doc)
-    setDeleteConfirmOpen(true)
-  }
-
-  const handleConfirmDelete = () => {
-    if (!doctorToDelete) return
-    deleteMutation.mutate(doctorToDelete.id)
+  const clearFilters = () => {
+    setSelectedSpecialist('')
+    setSelectedHospital('')
+    setSelectedGender('')
+    setMinRating('')
+    setAvailableTodayOnly(false)
+    setSearchTerm('')
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', py: 6, bgcolor: 'grey.50' }}>
-      <Container maxWidth="lg">
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6, flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
-              Find Specialist Doctors
-            </Typography>
-            <Typography variant="h6" color="text.secondary">
-              Book online and in-person medical consultations with verified physicians.
-            </Typography>
-          </Box>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white rounded-3xl p-6 sm:p-10 mb-8 shadow-sm">
+        <h1 className="text-2xl sm:text-4xl font-bold mb-2">Find Qualified Doctors & Specialists</h1>
+        <p className="text-teal-100/90 text-sm sm:text-base max-w-2xl">
+          Browse verified physicians, check schedules, leaves, and book your healthcare consultations.
+        </p>
 
-          {canAdd && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenAddModal(true)}
-              sx={{ borderRadius: 3, px: 3, py: 1.2, fontWeight: 700 }}
-            >
-              Add Doctor
-            </Button>
-          )}
-          <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 0.5 }}>
-            <Tooltip title="Grid View">
-              <IconButton
-                size="small"
-                color={viewMode === 'grid' ? 'primary' : 'inherit'}
-                onClick={() => setViewMode('grid')}
-              >
-                <ViewModuleIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="List View">
-              <IconButton
-                size="small"
-                color={viewMode === 'list' ? 'primary' : 'inherit'}
-                onClick={() => setViewMode('list')}
-              >
-                <ViewListIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
-
-        {bookingSuccess && (
-          <Alert severity="success" sx={{ mb: 4 }} onClose={() => setBookingSuccess(false)}>
-            Appointment booked successfully! You can track your booking status in your Appointments dashboard.
-          </Alert>
-        )}
-
-        <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-          <TextField
-            fullWidth
-            placeholder="Search doctor by name, specialization (e.g. Cardiology, Pediatrics)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon color="action" />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-        </Paper>
-
-        {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress size={48} />
-          </Box>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 4 }}>
-            Error loading doctors. Please ensure the backend server is operational.
-          </Alert>
-        )}
-
-        {doctorsData && (
-          viewMode === 'grid' ? (
-            <Grid container spacing={3}>
-              {doctorsData.results.map((doc) => (
-                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={doc.id}>
-                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                    <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
-                      <Avatar
-                        src={doc.avatar_url}
-                        sx={{ width: 80, height: 80, mx: 'auto', mb: 2, bgcolor: 'primary.main', fontSize: 32 }}
-                      >
-                        {doc.full_name?.charAt(0) || 'D'}
-                      </Avatar>
-
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {doc.full_name}
-                      </Typography>
-
-                      <Chip
-                        icon={<MedicalServicesIcon />}
-                        label={doc.specialization || 'General Practitioner'}
-                        color="primary"
-                        size="small"
-                        sx={{ my: 1 }}
-                      />
-
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2 }}>
-                        {doc.hospital_name || 'Associated Medical Center'}
-                      </Typography>
-
-                      <Divider sx={{ my: 1.5 }} />
-
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="caption" color="text.secondary">
-                          Fee: <strong>${doc.consultation_fee || 50}</strong>
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Rating value={doc.average_rating || 4.8} precision={0.5} readOnly size="small" />
-                          <Typography variant="caption" sx={{ fontWeight: 700 }}>
-                            {doc.average_rating || 4.8}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </CardContent>
-
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 1, alignItems: 'center' }}>
-                      {canEdit && (
-                        <Tooltip title="Edit doctor">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenEditDialog(doc)}
-                          >
-                            <EditIcon />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {canEdit && (
-                        <Tooltip title="Delete doctor">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleOpenDeleteConfirm(doc)}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        startIcon={<EventAvailableIcon />}
-                        onClick={() => handleOpenBooking(doc)}
-                        sx={{ borderRadius: 2, ml: 'auto' }}
-                      >
-                        Book Appointment
-                      </Button>
-                    </Box>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {doctorsData.results.map((doc) => (
-                <Card key={doc.id} sx={{ borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-                      <Avatar
-                        src={doc.avatar_url}
-                        sx={{ width: 70, height: 70, bgcolor: 'primary.main', fontSize: 28, flexShrink: 0 }}
-                      >
-                        {doc.full_name?.charAt(0) || 'D'}
-                      </Avatar>
-                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1 }}>
-                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            {doc.full_name}
-                          </Typography>
-                          <Chip
-                            icon={<MedicalServicesIcon />}
-                            label={doc.specialization || 'General Practitioner'}
-                            color="primary"
-                            size="small"
-                          />
-                        </Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                          {doc.hospital_name || 'Associated Medical Center'}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                          <Typography variant="body2" color="text.secondary">
-                            Fee: <strong>${doc.consultation_fee || 50}</strong>
-                          </Typography>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Rating value={doc.average_rating || 4.8} precision={0.5} readOnly size="small" />
-                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                              {doc.average_rating || 4.8}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                        {canEdit && (
-                          <Tooltip title="Edit doctor">
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => handleOpenEditDialog(doc)}
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        {canEdit && (
-                          <Tooltip title="Delete doctor">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleOpenDeleteConfirm(doc)}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                        <Button
-                          variant="contained"
-                          startIcon={<EventAvailableIcon />}
-                          onClick={() => handleOpenBooking(doc)}
-                          sx={{ borderRadius: 2 }}
-                        >
-                          Book Appointment
-                        </Button>
-                      </Box>
-                    </Box>
-                  </CardContent>
-                </Card>
-              ))}
-            </Box>
-          )
-        )}
-
-        {/* Booking Dialog */}
-        <Dialog open={!!selectedDoctor} onClose={() => setSelectedDoctor(null)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            Book Appointment with {selectedDoctor?.full_name}
-          </DialogTitle>
-          <DialogContent dividers>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Specialization: <strong>{selectedDoctor?.specialization}</strong> ({selectedDoctor?.hospital_name})
-            </Typography>
-
-            <TextField
-              fullWidth
-              type="datetime-local"
-              label="Schedule Date & Time"
-              slotProps={{ inputLabel: { shrink: true } }}
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              sx={{ mb: 3 }}
+        {/* Top Search Input */}
+        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by doctor name, qualification, specialty, or hospital..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white text-slate-900 placeholder-slate-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-400 shadow-xs"
             />
+          </div>
+          <button
+            onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+            className="md:hidden flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-teal-700/80 hover:bg-teal-700 text-white text-sm font-semibold transition-colors"
+          >
+            <FilterList fontSize="small" />
+            Filters {hasActiveFilters && '(Active)'}
+          </button>
+        </div>
+      </div>
 
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Reason for Visit / Symptoms"
-              placeholder="Describe your health concern or symptoms..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setSelectedDoctor(null)}>Cancel</Button>
-            <Button
-              variant="contained"
-              disabled={!scheduledAt || !reason || bookMutation.isPending}
-              onClick={() =>
-                bookMutation.mutate({
-                  doctor: selectedDoctor.id,
-                  scheduled_at: new Date(scheduledAt).toISOString(),
-                  reason,
-                })
-              }
-            >
-              {bookMutation.isPending ? 'Booking...' : 'Confirm Appointment'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        <AdminAddEntityModal open={openAddModal} onClose={() => setOpenAddModal(false)} initialTab={2} />
-
-        {/* Edit Doctor Dialog */}
-        <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Edit Doctor</DialogTitle>
-          <DialogContent dividers>
-            {formError && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {formError}
-              </Alert>
-            )}
-            <Stack spacing={2.5} sx={{ mt: 1 }}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
-              <TextField
-                fullWidth
-                label="Specialization"
-                value={specialization}
-                onChange={(e) => setSpecialization(e.target.value)}
-                required
-              />
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="Phone"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth
-                    label="Email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </Grid>
-              </Grid>
-              <TextField
-                fullWidth
-                label="Bio"
-                multiline
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-              />
-              <TextField
-                fullWidth
-                label="Consultation Fee ($)"
-                type="number"
-                value={consultationFee}
-                onChange={(e) => setConsultationFee(e.target.value)}
-              />
-              <FormControl fullWidth>
-                <InputLabel>Availability</InputLabel>
-                <Select
-                  value={isAvailable ? 'yes' : 'no'}
-                  label="Availability"
-                  onChange={(e) => setIsAvailable(e.target.value === 'yes')}
+      {/* Layout: Sidebar Filters + Results Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        {/* Desktop Sidebar Filters */}
+        <div className={`md:block ${mobileFilterOpen ? 'block' : 'hidden'} md:col-span-1`}>
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs sticky top-24 space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <FilterList className="text-teal-600" fontSize="small" /> Filters
+              </h3>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-0.5"
                 >
-                  <MenuItem value="yes">Available</MenuItem>
-                  <MenuItem value="no">Not Available</MenuItem>
-                </Select>
-              </FormControl>
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={handleCloseEditDialog} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              sx={{ px: 3, fontWeight: 600, borderRadius: 2 }}
-              disabled={updateMutation.isPending}
-              onClick={handleSaveEdit}
-            >
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+                  <Clear style={{ fontSize: 14 }} /> Reset
+                </button>
+              )}
+            </div>
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Confirm Deletion</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete <strong>{doctorToDelete?.full_name}</strong>? This action cannot be undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
-            <Button
-              onClick={handleConfirmDelete}
-              variant="contained"
-              color="error"
-              sx={{ px: 3, fontWeight: 600, borderRadius: 2 }}
-              disabled={deleteMutation.isPending}
-            >
-              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </Box>
+            {/* Specialist Dropdown */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Specialty
+              </label>
+              <select
+                value={selectedSpecialist}
+                onChange={(e) => setSelectedSpecialist(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">All Specialties</option>
+                {Array.isArray(specialistsData) &&
+                  specialistsData.map((spec: any) => (
+                    <option key={spec.id} value={spec.id}>
+                      {spec.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Hospital Dropdown */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Hospital
+              </label>
+              <select
+                value={selectedHospital}
+                onChange={(e) => setSelectedHospital(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">All Hospitals</option>
+                {Array.isArray(hospitalsData) &&
+                  hospitalsData.map((hosp: any) => (
+                    <option key={hosp.id} value={hosp.id}>
+                      {hosp.name}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            {/* Gender Filter */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Doctor Gender
+              </label>
+              <div className="grid grid-cols-3 gap-1.5 text-xs">
+                {[
+                  { value: '', label: 'All' },
+                  { value: 'male', label: 'Male' },
+                  { value: 'female', label: 'Female' },
+                ].map((g) => (
+                  <button
+                    key={g.value}
+                    type="button"
+                    onClick={() => setSelectedGender(g.value)}
+                    className={`py-2 px-1 rounded-xl text-center font-medium border transition-all ${
+                      selectedGender === g.value
+                        ? 'bg-teal-600 text-white border-teal-600 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Availability Filter Toggle */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={availableTodayOnly}
+                  onChange={(e) => setAvailableTodayOnly(e.target.checked)}
+                  className="rounded text-teal-600 focus:ring-teal-500 h-4 w-4"
+                />
+                <span className="flex items-center gap-1">
+                  <EventAvailable fontSize="small" className="text-emerald-600" />
+                  Available Today Only
+                </span>
+              </label>
+            </div>
+
+            {/* Minimum Rating */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Minimum Rating
+              </label>
+              <div className="flex items-center gap-2">
+                {[4, 4.5].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => setMinRating(minRating === rate ? '' : rate)}
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1 transition-all ${
+                      minRating === rate
+                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Star style={{ fontSize: 14 }} className="text-amber-400" />
+                    {rate}+ Stars
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Results Column */}
+        <div className="md:col-span-3">
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-sm text-slate-600 font-medium">
+              Showing <strong className="text-slate-900">{doctorsList.length}</strong> of <strong className="text-slate-900">{totalCount}</strong> verified doctors
+            </p>
+          </div>
+
+          {/* Loading State */}
+          {isLoading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 animate-pulse space-y-4">
+                  <div className="flex gap-4">
+                    <div className="w-16 h-16 bg-slate-200 rounded-2xl shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-slate-200 rounded w-3/4" />
+                      <div className="h-3 bg-slate-200 rounded w-1/2" />
+                      <div className="h-3 bg-slate-200 rounded w-1/3" />
+                    </div>
+                  </div>
+                  <div className="h-10 bg-slate-100 rounded-xl" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-50 text-red-700 p-8 rounded-2xl border border-red-200 text-center">
+              <h3 className="font-bold text-base mb-1">Failed to load doctors</h3>
+              <p className="text-xs">Please check your network connection and try again.</p>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!isLoading && !error && doctorsList.length === 0 && (
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-12 text-center">
+              <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Person style={{ fontSize: 32 }} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">No Doctors Found</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
+                We couldn't find any doctors matching your search or filters. Try clearing some filters.
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-5 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Doctors Grid */}
+          {!isLoading && !error && doctorsList.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {doctorsList.map((doc) => (
+                  <DoctorCard
+                    key={doc.id}
+                    doctor={doc}
+                    onBook={(d) => setBookingDoctor(d)}
+                  />
+                ))}
+              </div>
+
+              {/* View More Doctors Controls (Backend Pagination) */}
+              {hasNextPage && (
+                <div className="mt-10 p-6 bg-slate-50 rounded-3xl border border-slate-200/80 text-center space-y-3">
+                  <p className="text-xs font-medium text-slate-500">
+                    Showing {doctorsList.length} of {totalCount} verified doctors
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="px-6 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-bold transition-all shadow-sm hover:shadow-md active:scale-95 flex items-center gap-2"
+                    >
+                      {isFetchingNextPage && <CircularProgress size={16} color="inherit" />}
+                      View More Doctors (+12)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Appointment Booking Modal */}
+      {bookingDoctor && (
+        <AppointmentBookingModal
+          doctor={bookingDoctor}
+          open={!!bookingDoctor}
+          onClose={() => setBookingDoctor(null)}
+        />
+      )}
+    </div>
   )
 }

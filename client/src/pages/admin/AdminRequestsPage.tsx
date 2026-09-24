@@ -130,7 +130,7 @@ function AppointmentsTab() {
 
   // Client-side search on name/doctor/hospital
   const filtered = search
-    ? appts.filter((a) =>
+    ? appts.filter((a: any) =>
         [a.citizen_name, a.doctor_name, a.hospital_name, a.reason]
           .some((f) => f?.toLowerCase().includes(search.toLowerCase()))
       )
@@ -198,7 +198,7 @@ function AppointmentsTab() {
             <TableBody>
               {isLoading ? <LoadingRow /> : filtered.length === 0
                 ? <EmptyState icon={<LocalHospitalIcon sx={{ fontSize: 'inherit' }} />} message="No appointments found" />
-                : filtered.map((a) => {
+                : filtered.map((a: any) => {
                   const s = APPT_STATUS[a.status] ?? { color: 'default', label: a.status }
                   return (
                     <TableRow key={a.id} hover>
@@ -346,7 +346,7 @@ function EmergencyRequestsTab() {
   const totalCount = data?.data?.count ?? 0
 
   const filtered = search
-    ? emergencies.filter((e) =>
+    ? emergencies.filter((e: any) =>
         [e.citizen_name, e.citizen_phone, e.pickup_address, e.request_type]
           .some((f) => f?.toLowerCase().includes(search.toLowerCase()))
       )
@@ -421,7 +421,7 @@ function EmergencyRequestsTab() {
             <TableBody>
               {isLoading ? <LoadingRow /> : filtered.length === 0
                 ? <EmptyState icon={<EmergencyShareIcon sx={{ fontSize: 'inherit' }} />} message="No emergency requests found" />
-                : filtered.map((e) => {
+                : filtered.map((e: any) => {
                   const s = EMERGENCY_STATUS[e.status] ?? { color: 'default', dot: '#9CA3AF' }
                   return (
                     <TableRow key={e.id} hover sx={{ bgcolor: e.status === 'pending' ? '#FEF3C720' : undefined }}>
@@ -535,7 +535,7 @@ function EmergencyRequestsTab() {
                 <InputLabel>Assign Ambulance</InputLabel>
                 <Select value={editAmb} label="Assign Ambulance" onChange={(e) => setEditAmb(e.target.value)}>
                   <MenuItem value="">Unassigned</MenuItem>
-                  {ambulances.map((amb) => (
+                  {ambulances.map((amb: any) => (
                     <MenuItem key={amb.id} value={amb.id}>
                       {amb.registration_number} ({amb.ambulance_type} - {amb.status})
                     </MenuItem>
@@ -683,7 +683,7 @@ function BloodRequestsTab() {
             <TableBody>
               {isLoading ? <LoadingRow /> : requests.length === 0
                 ? <EmptyState icon={<BloodtypeIcon sx={{ fontSize: 'inherit' }} />} message="No blood requests found" />
-                : requests.map((r) => {
+                : requests.map((r: any) => {
                   const bs = BLOOD_STATUS[r.status] ?? { color: 'default' }
                   const urg = URGENCY[r.urgency] ?? { color: 'default' }
                   const filled = r.units_fulfilled >= r.units_needed

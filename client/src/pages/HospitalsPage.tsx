@@ -1,622 +1,311 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import {
-  Container, Typography, Box, Grid, Card, CardContent, TextField, Button, MenuItem,
-  Chip, Rating, CircularProgress, Alert, Paper, InputAdornment, Divider,
-  IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Stack,
-  FormControl, InputLabel, Select,
-} from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
-import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
-import LocationOnIcon from '@mui/icons-material/LocationOn'
-import PhoneIcon from '@mui/icons-material/Phone'
-import EmailIcon from '@mui/icons-material/Email'
-import HotelIcon from '@mui/icons-material/Hotel'
-import VerifiedIcon from '@mui/icons-material/Verified'
-import ViewModuleIcon from '@mui/icons-material/ViewModule'
-import ViewListIcon from '@mui/icons-material/ViewList'
-import AddIcon from '@mui/icons-material/Add'
-import EditIcon from '@mui/icons-material/Edit'
-import DeleteIcon from '@mui/icons-material/Delete'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { healthcareApi, adminApi } from '../api/services'
-import { Link } from 'react-router-dom'
-import { useAuthStore } from '../store/authStore'
-import AdminAddEntityModal from '../components/admin/AdminAddEntityModal'
+  Search,
+  FilterList,
+  Clear,
+  LocalHospital,
+  Emergency,
+  AccessTime,
+  Star,
+} from '@mui/icons-material'
+import { CircularProgress } from '@mui/material'
+import { hospitalApi } from '../api/services'
+import { HospitalCard } from '../components/healthcare/HospitalCard'
 import type { Hospital } from '../types'
 
 export default function HospitalsPage() {
-  const queryClient = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [emergencyOnly, setEmergencyOnly] = useState('')
-  const [openAddModal, setOpenAddModal] = useState(false)
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [editingHospital, setEditingHospital] = useState<Hospital | null>(null)
-  const [hospitalToDelete, setHospitalToDelete] = useState<Hospital | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedType, setSelectedType] = useState('')
+  const [selectedCity, setSelectedCity] = useState('')
+  const [emergencyOnly, setEmergencyOnly] = useState(false)
+  const [open24HoursOnly, setOpen24HoursOnly] = useState(false)
+  const [minRating, setMinRating] = useState<number | ''>('')
+  const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
-  // Form states
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [address, setAddress] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
-  const [website, setWebsite] = useState('')
-  const [bedCount, setBedCount] = useState('')
-  const [availableBeds, setAvailableBeds] = useState('')
-  const [emergencyAvailable, setEmergencyAvailable] = useState(false)
-  const [isVerified, setIsVerified] = useState(false)
-  const [formError, setFormError] = useState('')
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    error,
+  } = useInfiniteQuery({
+    queryKey: ['hospitals', selectedType, selectedCity, emergencyOnly, open24HoursOnly, minRating, searchTerm],
+    queryFn: async ({ pageParam = 1 }) => {
+      const params: Record<string, any> = { status: 'active', page: pageParam, page_size: 12 }
+      if (selectedType) params.hospital_type = selectedType
+      if (selectedCity) params.city = selectedCity
+      if (emergencyOnly) params.emergency_available = true
+      if (open24HoursOnly) params.open_24_hours = true
+      if (minRating) params.min_rating = minRating
+      if (searchTerm.trim()) params.search = searchTerm.trim()
 
-  const { isAuthenticated, hasRole } = useAuthStore()
-  const canAdd = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
-  const canEdit = isAuthenticated && (hasRole('admin') || hasRole('moderator'))
-
-  // View mode state: 'grid' or 'list'
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-
-  const { data: hospitalsData, isLoading, error } = useQuery({
-    queryKey: ['hospitals', search, emergencyOnly],
-    queryFn: async () => {
-      const res = await healthcareApi.getHospitals({
-        search,
-        emergency_available: emergencyOnly ? emergencyOnly === 'true' : undefined,
-      })
+      const res = await hospitalApi.getHospitals(params)
       return res.data
     },
-  })
-
-  // Mutations
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Hospital> }) => adminApi.updateHospital(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hospitals'] })
-      handleCloseEditDialog()
-    },
-    onError: (err: any) => {
-      setFormError(err.response?.data?.detail || err.message || 'Failed to update hospital')
+    initialPageParam: 1,
+    getNextPageParam: (lastPage: any) => {
+      if (lastPage?.next && lastPage.current_page < lastPage.total_pages) {
+        return lastPage.current_page + 1
+      }
+      return undefined
     },
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: adminApi.deleteHospital,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hospitals'] })
-      setDeleteConfirmOpen(false)
-      setHospitalToDelete(null)
-    },
-  })
+  const hospitalsList: Hospital[] = useMemo(() => {
+    if (!data?.pages) return []
+    return data.pages.flatMap((p: any) => p?.results || [])
+  }, [data])
 
-  const handleOpenEdit = (hospital: any) => {
-    setEditingHospital(hospital)
-    setName(hospital.name)
-    setDescription(hospital.description || '')
-    setAddress(hospital.address)
-    setPhone(hospital.phone || '')
-    setEmail(hospital.email || '')
-    setWebsite(hospital.website || '')
-    setBedCount(hospital.bed_count?.toString() || '')
-    setAvailableBeds(hospital.available_beds?.toString() || '')
-    setEmergencyAvailable(hospital.emergency_available || false)
-    setIsVerified(hospital.is_verified || false)
-    setFormError('')
-    setEditDialogOpen(true)
-  }
+  const totalCount = data?.pages?.[0]?.count ?? hospitalsList.length
 
-  const handleCloseEditDialog = () => {
-    setEditDialogOpen(false)
-    setEditingHospital(null)
-    setFormError('')
-  }
+  const hasActiveFilters = Boolean(
+    selectedType || selectedCity || emergencyOnly || open24HoursOnly || minRating || searchTerm
+  )
 
-  const handleOpenDeleteConfirm = (hospital: any) => {
-    setHospitalToDelete(hospital)
-    setDeleteConfirmOpen(true)
-  }
-
-  const handleConfirmDelete = () => {
-    if (hospitalToDelete) {
-      deleteMutation.mutate(hospitalToDelete.id)
-    }
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setFormError('')
-
-    if (!editingHospital) return
-
-    const payload: Partial<Hospital> = {
-      name,
-      description,
-      address,
-      phone,
-      email,
-      website,
-      bed_count: bedCount ? parseInt(bedCount) : undefined,
-      available_beds: availableBeds ? parseInt(availableBeds) : undefined,
-      emergency_available: emergencyAvailable,
-      is_verified: isVerified,
-    }
-
-    updateMutation.mutate({ id: editingHospital.id, data: payload })
+  const clearFilters = () => {
+    setSelectedType('')
+    setSelectedCity('')
+    setEmergencyOnly(false)
+    setOpen24HoursOnly(false)
+    setMinRating('')
+    setSearchTerm('')
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', py: 6, bgcolor: 'grey.50' }}>
-      <Container maxWidth="lg">
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6, flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Typography variant="h3" sx={{ fontWeight: 800, color: 'primary.main', mb: 1 }}>
-              Hospitals & Healthcare Facilities
-            </Typography>
-            <Typography variant="h6" color="text.secondary">
-              Find nearby hospitals, check bed availability, and book specialist doctor consultations.
-            </Typography>
-          </Box>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-teal-950 to-slate-900 text-white rounded-3xl p-6 sm:p-10 mb-8 shadow-sm">
+        <h1 className="text-2xl sm:text-4xl font-bold mb-2">Hospitals & Medical Centres</h1>
+        <p className="text-slate-300 text-sm sm:text-base max-w-2xl">
+          Discover top-tier hospitals, specialized clinical institutes, 24/7 emergency departments, and diagnostic centers.
+        </p>
 
-          {canAdd && (
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setOpenAddModal(true)}
-              sx={{ borderRadius: 3, px: 3, py: 1.2, fontWeight: 700 }}
-            >
-              Add Hospital
-            </Button>
-          )}
-          <Box sx={{ display: 'flex', gap: 0.5, border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 0.5 }}>
-            <Tooltip title="Grid View">
-              <IconButton
-                size="small"
-                color={viewMode === 'grid' ? 'primary' : 'inherit'}
-                onClick={() => setViewMode('grid')}
-              >
-                <ViewModuleIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="List View">
-              <IconButton
-                size="small"
-                color={viewMode === 'list' ? 'primary' : 'inherit'}
-                onClick={() => setViewMode('list')}
-              >
-                <ViewListIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Box>
+        {/* Top Search */}
+        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search hospitals by name, area, city, or medical services..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-white text-slate-900 placeholder-slate-400 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-400 shadow-xs"
+            />
+          </div>
+          <button
+            onClick={() => setMobileFilterOpen(!mobileFilterOpen)}
+            className="md:hidden flex items-center justify-center gap-2 px-5 py-3.5 rounded-2xl bg-teal-800 text-white text-sm font-semibold transition-colors"
+          >
+            <FilterList fontSize="small" />
+            Filters {hasActiveFilters && '(Active)'}
+          </button>
+        </div>
+      </div>
 
-        {/* Filters */}
-        <Paper elevation={0} sx={{ p: 3, mb: 4, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-          <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <TextField
-                fullWidth
-                placeholder="Search hospital by name, address, or medical department..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon color="action" />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 5 }}>
-              <TextField
-                fullWidth
-                select
-                label="Emergency Care Status"
-                value={emergencyOnly}
-                onChange={(e) => setEmergencyOnly(e.target.value)}
-              >
-                <MenuItem value="">All Facilities</MenuItem>
-                <MenuItem value="true">24/7 Emergency Available Only</MenuItem>
-              </TextField>
-            </Grid>
-          </Grid>
-        </Paper>
-
-        {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress size={48} />
-          </Box>
-        )}
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 4 }}>
-            Error loading hospitals. Please check backend connection.
-          </Alert>
-        )}
-
-        {hospitalsData && (
-          viewMode === 'grid' ? (
-            <Grid container spacing={3}>
-              {hospitalsData.results.map((hospital) => (
-                <Grid size={{ xs: 12, md: 6 }} key={hospital.id}>
-                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', borderRadius: 3, transition: '0.2s', '&:hover': { boxShadow: 4 } }}>
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <LocalHospitalIcon color="primary" />
-                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            {hospital.name}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                          {hospital.is_verified && <Chip icon={<VerifiedIcon />} label="Verified" color="success" size="small" />}
-                          {canEdit && (
-                            <>
-                              <Tooltip title="Edit Hospital">
-                                <IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenEdit(hospital); }}>
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Delete Hospital">
-                                <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); handleOpenDeleteConfirm(hospital); }}>
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </>
-                          )}
-                        </Box>
-                      </Box>
-
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {hospital.description || 'Full-service medical center with emergency care and specialist departments.'}
-                      </Typography>
-
-                      <Divider sx={{ my: 1.5 }} />
-
-                      <Grid container spacing={1} sx={{ mb: 2 }}>
-                        <Grid size={{ xs: 6 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <LocationOnIcon fontSize="small" color="action" />
-                            <Typography variant="caption" color="text.secondary" noWrap>
-                              {hospital.address}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <PhoneIcon fontSize="small" color="action" />
-                            <Typography variant="caption" color="text.secondary">
-                              {hospital.phone || '24/7 Helpline'}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <HotelIcon fontSize="small" color="action" />
-                            <Typography variant="caption" color="text.secondary">
-                              Beds: <strong>{hospital.available_beds || 0}</strong> / {hospital.bed_count || 0} available
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                          {hospital.emergency_available ? (
-                            <Chip label="24/7 Emergency" color="error" size="small" sx={{ fontWeight: 700 }} />
-                          ) : (
-                            <Chip label="Standard Hours" color="default" size="small" />
-                          )}
-                        </Grid>
-                      </Grid>
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                        <Rating value={hospital.average_rating || 4.5} precision={0.5} readOnly size="small" />
-                        <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                          {hospital.average_rating || 4.5} ({hospital.doctors_count || 12} Doctors)
-                        </Typography>
-                      </Box>
-                    </CardContent>
-
-                    <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 2 }}>
-                      <Button fullWidth variant="contained" component={Link} to={`/hospitals/${hospital.id}`} sx={{ borderRadius: 2 }}>
-                        Hospital Details
-                      </Button>
-                      <Button fullWidth variant="outlined" component={Link} to={`/doctors?hospital=${hospital.id}`} sx={{ borderRadius: 2 }}>
-                        Find Doctors
-                      </Button>
-                    </Box>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {hospitalsData.results.map((hospital) => (
-                <Card
-                  key={hospital.id}
-                  sx={{
-                    borderRadius: 3,
-                    transition: '0.2s',
-                    '&:hover': {
-                      boxShadow: 6,
-                      transform: 'translateY(-2px)'
-                    },
-                    overflow: 'hidden'
-                  }}
+      {/* Grid: Filters Sidebar + Results Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        {/* Sidebar Filters */}
+        <div className={`md:block ${mobileFilterOpen ? 'block' : 'hidden'} md:col-span-1`}>
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs sticky top-24 space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
+                <FilterList className="text-teal-600" fontSize="small" /> Hospital Filters
+              </h3>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-rose-600 font-semibold hover:underline flex items-center gap-0.5"
                 >
-                  <CardContent sx={{ p: 3 }}>
-                    {/* Header Section */}
-                    <Box sx={{
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      gap: 2,
-                      mb: 1.5
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <LocalHospitalIcon color="primary" sx={{ fontSize: 28 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-                          {hospital.name}
-                        </Typography>
-                      </Box>
+                  <Clear style={{ fontSize: 14 }} /> Reset
+                </button>
+              )}
+            </div>
 
-                      <Box sx={{
-                        display: 'flex',
-                        gap: 1,
-                        alignItems: 'center',
-                        flexShrink: 0
-                      }}>
-                        {hospital.is_verified && (
-                          <Chip
-                            icon={<VerifiedIcon sx={{ fontSize: 16 }} />}
-                            label="Verified"
-                            color="success"
-                            size="small"
-                            sx={{ fontWeight: 600 }}
-                          />
-                        )}
-                        {canEdit && (
-                          <>
-                            <Tooltip title="Edit Hospital">
-                              <IconButton
-                                size="small"
-                                color="primary"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenEdit(hospital);
-                                }}
-                                sx={{
-                                  '&:hover': { backgroundColor: 'primary.light', color: 'primary.dark' }
-                                }}
-                              >
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete Hospital">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenDeleteConfirm(hospital);
-                                }}
-                                sx={{
-                                  '&:hover': { backgroundColor: 'error.light', color: 'error.dark' }
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          </>
-                        )}
-                      </Box>
-                    </Box>
+            {/* Hospital Type */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Facility Type
+              </label>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">All Facility Types</option>
+                <option value="general">General Hospital</option>
+                <option value="specialized">Specialized Hospital</option>
+                <option value="tertiary">Tertiary Care Hospital</option>
+                <option value="clinic">Clinic</option>
+                <option value="diagnostic">Diagnostic Center</option>
+                <option value="dental">Dental Clinic</option>
+                <option value="eye">Eye Hospital</option>
+                <option value="maternity">Maternity Hospital</option>
+              </select>
+            </div>
 
-                    {/* Description */}
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        mb: 2,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        lineHeight: 1.5
-                      }}
-                    >
-                      {hospital.description || 'Full-service medical center with emergency care and specialist departments.'}
-                    </Typography>
+            {/* City */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                City / Region
+              </label>
+              <select
+                value={selectedCity}
+                onChange={(e) => setSelectedCity(e.target.value)}
+                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              >
+                <option value="">All Cities</option>
+                <option value="Dhaka">Dhaka</option>
+                <option value="Chittagong">Chittagong</option>
+                <option value="Sylhet">Sylhet</option>
+                <option value="Rajshahi">Rajshahi</option>
+                <option value="Khulna">Khulna</option>
+                <option value="Barisal">Barisal</option>
+                <option value="Rangpur">Rangpur</option>
+                <option value="Mymensingh">Mymensingh</option>
+              </select>
+            </div>
 
-                    <Divider sx={{ my: 2 }} />
+            {/* Emergency & 24/7 Toggles */}
+            <div className="pt-2 border-t border-slate-100 space-y-3">
+              <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={emergencyOnly}
+                  onChange={(e) => setEmergencyOnly(e.target.checked)}
+                  className="rounded text-red-600 focus:ring-red-500 h-4 w-4"
+                />
+                <span className="flex items-center gap-1 text-red-700">
+                  <Emergency fontSize="small" />
+                  24/7 Emergency Available
+                </span>
+              </label>
 
-                    {/* Info Grid */}
-                    <Grid container spacing={2} sx={{ mb: 2 }}>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <LocationOnIcon fontSize="small" color="action" />
-                          <Typography variant="body2" color="text.secondary" noWrap>
-                            {hospital.address}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <PhoneIcon fontSize="small" color="action" />
-                          <Typography variant="body2" color="text.secondary">
-                            {hospital.phone || '24/7 Helpline'}
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <HotelIcon fontSize="small" color="action" />
-                          <Typography variant="body2" color="text.secondary">
-                            <strong>{hospital.available_beds || 0}</strong> / {hospital.bed_count || 0} beds available
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-                          {hospital.emergency_available ? (
-                            <Chip
-                              label="24/7 Emergency"
-                              color="error"
-                              size="small"
-                              sx={{
-                                fontWeight: 700,
-                                '& .MuiChip-label': { px: 1.5 }
-                              }}
-                            />
-                          ) : (
-                            <Chip
-                              label="Standard Hours"
-                              color="default"
-                              size="small"
-                            />
-                          )}
-                        </Box>
-                      </Grid>
-                    </Grid>
+              <label className="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800">
+                <input
+                  type="checkbox"
+                  checked={open24HoursOnly}
+                  onChange={(e) => setOpen24HoursOnly(e.target.checked)}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                />
+                <span className="flex items-center gap-1 text-emerald-700">
+                  <AccessTime fontSize="small" />
+                  Open 24 Hours
+                </span>
+              </label>
+            </div>
 
-                    {/* Rating Section */}
-                    <Box sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      mb: 2,
-                      py: 1,
-                      px: 1.5,
-                      bgcolor: 'action.hover',
-                      borderRadius: 2
-                    }}>
-                      <Rating
-                        value={hospital.average_rating || 4.5}
-                        precision={0.5}
-                        readOnly
-                        size="small"
-                      />
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {hospital.average_rating || 4.5}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        ({hospital.doctors_count || 12} Doctors)
-                      </Typography>
-                    </Box>
+            {/* Minimum Rating */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Minimum Rating
+              </label>
+              <div className="flex items-center gap-2">
+                {[4, 4.5].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => setMinRating(minRating === rate ? '' : rate)}
+                    className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-semibold border flex items-center justify-center gap-1 transition-all ${
+                      minRating === rate
+                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Star style={{ fontSize: 14 }} className="text-amber-400" />
+                    {rate}+ Stars
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
 
-                    {/* Action Buttons */}
-                    <Box sx={{
-                      display: 'flex',
-                      gap: 2,
-                      flexWrap: 'wrap',
-                      pt: 2,
-                      borderTop: 1,
-                      borderColor: 'divider'
-                    }}>
-                      <Button
-                        variant="contained"
-                        component={Link}
-                        to={`/hospitals/${hospital.id}`}
-                        sx={{
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          px: 3
-                        }}
-                      >
-                        Hospital Details
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        component={Link}
-                        to={`/doctors?hospital=${hospital.id}`}
-                        sx={{
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          px: 3
-                        }}
-                      >
-                        Find Doctors
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
+        {/* Results Column */}
+        <div className="md:col-span-3">
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-sm text-slate-600 font-medium">
+              Showing <strong className="text-slate-900">{hospitalsList.length}</strong> of <strong className="text-slate-900">{totalCount}</strong> hospitals
+            </p>
+          </div>
+
+          {/* Loading */}
+          {isLoading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-slate-100 overflow-hidden animate-pulse">
+                  <div className="h-44 bg-slate-200" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-slate-200 rounded w-3/4" />
+                    <div className="h-3 bg-slate-200 rounded w-1/2" />
+                    <div className="h-10 bg-slate-100 rounded-xl" />
+                  </div>
+                </div>
               ))}
-            </Box>
-          )
-        )}
+            </div>
+          )}
 
-        <AdminAddEntityModal open={openAddModal} onClose={() => setOpenAddModal(false)} initialTab={1} />
+          {/* Error */}
+          {error && (
+            <div className="bg-red-50 text-red-700 p-8 rounded-2xl border border-red-200 text-center">
+              <h3 className="font-bold text-base mb-1">Failed to load hospitals</h3>
+              <p className="text-xs">Please check your internet connection and try again.</p>
+            </div>
+          )}
 
-        {/* Edit Dialog */}
-        <Dialog open={editDialogOpen} onClose={handleCloseEditDialog} fullWidth maxWidth="md" sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
-          <form onSubmit={handleSubmit}>
-            <DialogTitle sx={{ fontWeight: 700 }}>Edit Hospital Information</DialogTitle>
-            <DialogContent dividers>
-              <Stack spacing={3} sx={{ mt: 1 }}>
-                {formError && <Alert severity="error">{formError}</Alert>}
-                <TextField variant="outlined" label="Hospital Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth required />
-                <TextField variant="outlined" label="Description" value={description} onChange={(e) => setDescription(e.target.value)} multiline rows={3} fullWidth />
-                <TextField variant="outlined" label="Address" value={address} onChange={(e) => setAddress(e.target.value)} multiline rows={2} fullWidth required slotProps={{ input: { startAdornment: <LocationOnIcon sx={{ color: 'text.secondary', mr: 1, mt: 1, alignSelf: 'flex-start' }} /> } }} />
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField variant="outlined" label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth slotProps={{ input: { startAdornment: <PhoneIcon sx={{ color: 'text.secondary', mr: 1 }} /> } }} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField variant="outlined" label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} fullWidth slotProps={{ input: { startAdornment: <EmailIcon sx={{ color: 'text.secondary', mr: 1 }} /> } }} />
-                  </Grid>
-                </Grid>
-                <TextField variant="outlined" label="Website" value={website} onChange={(e) => setWebsite(e.target.value)} fullWidth placeholder="https://example.com" />
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField variant="outlined" label="Total Bed Count" type="number" value={bedCount} onChange={(e) => setBedCount(e.target.value)} fullWidth />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField variant="outlined" label="Available Beds" type="number" value={availableBeds} onChange={(e) => setAvailableBeds(e.target.value)} fullWidth />
-                  </Grid>
-                </Grid>
-                {canEdit && (
-                  <Grid container spacing={2}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth>
-                        <InputLabel>24/7 Emergency</InputLabel>
-                        <Select value={emergencyAvailable ? 'yes' : 'no'} label="24/7 Emergency" onChange={(e) => setEmergencyAvailable(e.target.value === 'yes')}>
-                          <MenuItem value="yes">Yes - Available</MenuItem>
-                          <MenuItem value="no">No - Standard Hours</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <FormControl fullWidth>
-                        <InputLabel>Verified</InputLabel>
-                        <Select value={isVerified ? 'yes' : 'no'} label="Verified" onChange={(e) => setIsVerified(e.target.value === 'yes')}>
-                          <MenuItem value="yes">Yes - Verified</MenuItem>
-                          <MenuItem value="no">No - Not Verified</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
-                  </Grid>
-                )}
-              </Stack>
-            </DialogContent>
-            <DialogActions sx={{ p: 2.5 }}>
-              <Button onClick={handleCloseEditDialog} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
-              <Button type="submit" variant="contained" color="primary" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={updateMutation.isPending}>Save Changes</Button>
-            </DialogActions>
-          </form>
-        </Dialog>
+          {/* Empty */}
+          {!isLoading && !error && hospitalsList.length === 0 && (
+            <div className="bg-white rounded-3xl border border-slate-200/80 p-12 text-center">
+              <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <LocalHospital style={{ fontSize: 32 }} />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">No Hospitals Found</h3>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mb-6">
+                No hospitals match your search criteria. Try adjusting your filters.
+              </p>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="px-5 py-2.5 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors"
+                >
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          )}
 
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Confirm Deletion</DialogTitle>
-          <DialogContent>
-            <Typography>Are you sure you want to delete <strong>{hospitalToDelete?.name}</strong>? This action cannot be undone.</Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5 }}>
-            <Button onClick={() => setDeleteConfirmOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>Cancel</Button>
-            <Button onClick={handleConfirmDelete} variant="contained" color="error" sx={{ px: 3, fontWeight: 600, borderRadius: 2 }} disabled={deleteMutation.isPending}>Delete</Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </Box>
+          {/* Grid */}
+          {!isLoading && !error && hospitalsList.length > 0 && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {hospitalsList.map((hosp) => (
+                  <HospitalCard key={hosp.id} hospital={hosp} />
+                ))}
+              </div>
+
+              {/* View More Hospitals Controls (Backend Pagination) */}
+              {hasNextPage && (
+                <div className="mt-10 p-6 bg-slate-50 rounded-3xl border border-slate-200/80 text-center space-y-3">
+                  <p className="text-xs font-medium text-slate-500">
+                    Showing {hospitalsList.length} of {totalCount} hospitals & medical centres
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                      className="px-6 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm font-bold transition-all shadow-sm hover:shadow-md active:scale-95 flex items-center gap-2"
+                    >
+                      {isFetchingNextPage && <CircularProgress size={16} color="inherit" />}
+                      View More Hospitals (+12)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }

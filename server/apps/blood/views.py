@@ -5,6 +5,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .models import BloodDonor, BloodRequest, DonationHistory, COMPATIBLE_DONORS
 from utils.geo import build_geo_filter
+from utils.pagination import StandardPagination
 
 
 # ─── Serializers ─────────────────────────────────────────────────────────────
@@ -95,6 +96,12 @@ class BloodDonorViewSet(viewsets.ModelViewSet):
             results = list(qs)
             for r in results:
                 r._distance_km = None
+
+        paginator = StandardPagination()
+        page = paginator.paginate_queryset(results, request)
+        if page is not None:
+            serializer = BloodDonorSerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
 
         return Response({'results': BloodDonorSerializer(results, many=True).data, 'count': len(results)})
 

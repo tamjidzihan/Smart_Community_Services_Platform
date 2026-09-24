@@ -25,12 +25,12 @@ class AIConversationSerializer(serializers.Serializer):
     created_at = serializers.DateTimeField()
 
 
-SYSTEM_PROMPT = """You are the Smart Community Services Assistant for SCSP (Smart Community Services Platform).
-Your job is to help citizens find and access community services in their area.
+SYSTEM_PROMPT = """You are the Smart Health AI Assistant for Smart Health Platform.
+Your job is to help patients find accredited hospitals, certified doctors, clinical departments, and voluntary blood donors.
 
 Always respond with a JSON object with this exact structure:
 {
-  "intent": "blood_search|hospital_search|doctor_search|ambulance_request|education_search|ngo_search|government_info|general",
+  "intent": "blood_search|hospital_search|doctor_search|general",
   "entities": {
     "blood_group": null,
     "specialization": null,
@@ -39,7 +39,7 @@ Always respond with a JSON object with this exact structure:
     "radius_km": 15,
     "keyword": null
   },
-  "human_response": "A friendly, helpful response to the user in plain text.",
+  "human_response": "A friendly, professional healthcare guidance response to the user in plain text.",
   "confidence": 0.95
 }
 
@@ -48,7 +48,6 @@ Examples:
 - "I need O+ blood donor near me" -> intent: "blood_search", blood_group: "O+"
 - "find dental hospital" -> intent: "hospital_search", hospital_category: "dental"
 - "cardiologist near me" -> intent: "doctor_search", specialization: "Cardiology"
-- "emergency ambulance" -> intent: "ambulance_request", urgency: "emergency"
 
 Specialization mappings:
 - "dentist" or "dental" -> "Dentist" or "Dental"
@@ -60,7 +59,7 @@ Hospital categories: general, specialized, clinic, diagnostic, pharmacy, dental,
 
 Blood groups: A+, A-, B+, B-, AB+, AB-, O+, O-
 
-Be concise, empathetic, and helpful. For emergencies, set urgency to "emergency" and confidence high.
+Be concise, empathetic, and helpful.
 Always respond in valid JSON only — no markdown, no extra text outside the JSON."""
 
 
@@ -197,8 +196,6 @@ def _run_db_query(intent, entities, lat, lon):
             return _execute_doctor_search(entities, lat, lon)
         if intent == 'hospital_search':
             return _execute_hospital_search(entities, lat, lon)
-        if intent == 'ambulance_request':
-            return _execute_ambulance_search(lat, lon, entities)
     except Exception as e:
         return {'_error': str(e)}
     return {}
@@ -351,25 +348,17 @@ def chat_history(request):
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def recommendations(request):
-    """Simple recommendation: popular services near user."""
+    """Simple recommendation: popular doctors and hospitals."""
     try:
-        from apps.services.models import ServiceListing
-        from apps.services.serializers import ServiceListingSerializer
-        from utils.geo import calculate_distance_km
+        from apps.healthcare.models import Doctor, Hospital
+        from apps.healthcare.views import DoctorSerializer, HospitalSerializer
 
-        lat = float(request.query_params.get('lat', 0))
-        lon = float(request.query_params.get('lng', 0))
-
-        services = ServiceListing.objects.filter(status='active').order_by('-average_rating', '-review_count')[:50]
-        results = []
-        for s in services:
-            if s.latitude and s.longitude:
-                dist = calculate_distance_km(lat, lon, s.latitude, s.longitude)
-                if dist <= 25:
-                    s._distance_km = round(dist, 2)
-                    results.append(s)
-        results.sort(key=lambda x: (-x.average_rating, x._distance_km))
-        return Response({'results': ServiceListingSerializer(results[:10], many=True).data})
+        doctors = Doctor.objects.filter(is_active=True).order_by('-average_rating')[:5]
+        hospitals = Hospital.objects.filter(is_active=True).order_by('-average_rating')[:5]
+        return Response({
+            'doctors': DoctorSerializer(doctors, many=True).data,
+            'hospitals': HospitalSerializer(hospitals, many=True).data,
+        })
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 

@@ -2,39 +2,67 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  AppBar, Toolbar, IconButton, Badge, Avatar, Menu, MenuItem,
-  Drawer, List, ListItem, ListItemIcon, ListItemText, Divider,
-  Box, Typography, Button, Tooltip, Chip,
+  AppBar,
+  Toolbar,
+  IconButton,
+  Badge,
+  Avatar,
+  Menu,
+  MenuItem,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  Divider,
+  Box,
+  Typography,
+  Button,
+  Tooltip,
+  Chip,
 } from '@mui/material'
 import {
-  Menu as MenuIcon, Notifications, LocalHospital, Bloodtype,
-  School, People, AccountBalance, SmartToy,
-  Dashboard, Person, Logout, Emergency, Home, MedicalServices, LocalShipping,
-  ChevronRight, Shield, Phone, LocalPharmacy,
+  Menu as MenuIcon,
+  Notifications,
+  LocalHospital,
+  Bloodtype,
+  SmartToy,
+  Dashboard,
+  Person,
+  Logout,
+  LocalPharmacy,
+  CalendarMonth,
+  Search,
 } from '@mui/icons-material'
 import { useAuthStore, useNotificationStore } from '../../store/authStore'
 import { authApi } from '../../api/services'
 import { useNotificationWS } from '../../hooks'
 
 const NAV_ITEMS = [
-  { label: 'Services', path: '/services', icon: <MedicalServices /> },
   { label: 'Hospitals', path: '/hospitals', icon: <LocalHospital /> },
   { label: 'Doctors', path: '/doctors', icon: <LocalPharmacy /> },
-  { label: 'Blood', path: '/blood-donors', icon: <Bloodtype /> },
-  { label: 'Education', path: '/education', icon: <School /> },
-  { label: 'NGOs', path: '/ngo', icon: <People /> },
-  { label: 'Government', path: '/government', icon: <AccountBalance /> },
-  { label: 'AI Assistant', path: '/ai-assistant', icon: <SmartToy /> },
+  { label: 'Blood Network', path: '/blood-donors', icon: <Bloodtype /> },
+  { label: 'AI Health Assistant', path: '/ai-assistant', icon: <SmartToy /> },
 ]
 
 export default function Layout() {
   useNotificationWS()
   const navigate = useNavigate()
   const location = useLocation()
-  const { isAuthenticated, user, logout, hasRole } = useAuthStore()
+  const { isAuthenticated, user, logout } = useAuthStore()
   const { unreadCount } = useNotificationStore()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [navSearch, setNavSearch] = useState('')
+
+  const handleNavSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (navSearch.trim()) {
+      navigate(`/doctors?search=${encodeURIComponent(navSearch.trim())}`)
+      setNavSearch('')
+      setDrawerOpen(false)
+    }
+  }
 
   const handleLogout = async () => {
     const refresh = localStorage.getItem('refresh_token')
@@ -43,19 +71,23 @@ export default function Layout() {
     navigate('/')
   }
 
-  const isActive = (path: string) => location.pathname.startsWith(path)
+  const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path))
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: '#F8FAFC' }}>
       {/* Navbar */}
-      <AppBar position="sticky" elevation={0} sx={{
-        bgcolor: 'rgba(255,255,255,0.95)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid #E5E7EB',
-      }}>
-        <Toolbar sx={{ gap: 1, minHeight: { xs: 64, md: 72 } }}>
+      <AppBar
+        position="sticky"
+        elevation={0}
+        sx={{
+          bgcolor: 'rgba(255,255,255,0.95)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid #E2E8F0',
+        }}
+      >
+        <Toolbar sx={{ gap: 1, minHeight: { xs: 64, md: 72 }, px: { xs: 2, sm: 4, lg: 6 } }}>
           <IconButton
-            sx={{ display: { md: 'none' }, color: '#111928' }}
+            sx={{ display: { md: 'none' }, color: '#0F172A' }}
             onClick={() => setDrawerOpen(true)}
             aria-label="Open menu"
           >
@@ -63,27 +95,34 @@ export default function Layout() {
           </IconButton>
 
           {/* Logo */}
-          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Box sx={{
-              width: 40, height: 40, borderRadius: 2.5,
-              background: 'linear-gradient(135deg, #1A56DB, #0E9F6E)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(26,86,219,0.3)',
-            }}>
-              <Typography sx={{ color: 'white', fontWeight: 900, fontSize: 18 }}>S</Typography>
+          <Link to="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Box
+              sx={{
+                width: 42,
+                height: 42,
+                borderRadius: 3,
+                background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(13,148,136,0.3)',
+                color: 'white',
+              }}
+            >
+              <LocalHospital sx={{ fontSize: 24 }} />
             </Box>
             <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-              <Typography sx={{ fontWeight: 800, color: '#111928', fontSize: 18, lineHeight: 1.2 }}>
-                SCSP
+              <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 18, lineHeight: 1.2 }}>
+                Smart Health
               </Typography>
-              <Typography sx={{ fontSize: 10, color: '#6B7280', fontWeight: 500, letterSpacing: '0.05em' }}>
-                SMART COMMUNITY
+              <Typography sx={{ fontSize: 10, color: '#0D9488', fontWeight: 700, letterSpacing: '0.08em' }}>
+                HEALTHCARE PLATFORM
               </Typography>
             </Box>
           </Link>
 
-          {/* Desktop nav */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, ml: 3, flex: 1 }}>
+          {/* Desktop Navigation */}
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, ml: 3, flex: 1, alignItems: 'center' }}>
             {NAV_ITEMS.map((item) => (
               <Button
                 key={item.path}
@@ -91,15 +130,17 @@ export default function Layout() {
                 to={item.path}
                 size="small"
                 sx={{
-                  color: isActive(item.path) ? '#1A56DB' : '#6B7280',
-                  fontWeight: isActive(item.path) ? 700 : 500,
-                  bgcolor: isActive(item.path) ? '#EBF5FF' : 'transparent',
-                  borderRadius: 2,
-                  px: 1.5,
-                  py: 0.75,
+                  color: isActive(item.path) ? '#0D9488' : '#64748B',
+                  fontWeight: isActive(item.path) ? 700 : 600,
+                  bgcolor: isActive(item.path) ? '#F0FDFA' : 'transparent',
+                  borderRadius: 2.5,
+                  px: 1.75,
+                  py: 0.8,
+                  fontSize: '0.85rem',
+                  textTransform: 'none',
                   '&:hover': {
-                    bgcolor: isActive(item.path) ? '#EBF5FF' : '#F3F4F6',
-                    color: '#1A56DB',
+                    bgcolor: '#F8FAFC',
+                    color: '#0F172A',
                   },
                 }}
               >
@@ -108,101 +149,118 @@ export default function Layout() {
             ))}
           </Box>
 
-          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-            {/* Emergency button */}
-            <Button
-              component={Link}
-              to="/emergency"
-              variant="contained"
-              color="error"
-              size="small"
-              startIcon={<Emergency />}
-              sx={{
-                display: { xs: 'none', sm: 'flex' },
-                borderRadius: 2,
-                px: 2,
-                fontWeight: 700,
-                background: 'linear-gradient(135deg, #E02424, #C81E1E)',
-                '&:hover': { background: 'linear-gradient(135deg, #C81E1E, #E02424)' },
-              }}
-            >
-              Emergency
-            </Button>
+          {/* Navbar Search: Find Care */}
+          <form
+            onSubmit={handleNavSearch}
+            className="hidden lg:flex items-center relative mr-3"
+            style={{ width: 220 }}
+          >
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: 18 }} />
+            <input
+              type="text"
+              placeholder="Search doctors, care..."
+              value={navSearch}
+              onChange={(e) => setNavSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200/70 focus:bg-white text-slate-900 placeholder-slate-400 rounded-full border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all shadow-2xs"
+            />
+          </form>
 
+          {/* Right Actions */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: { xs: 'auto', lg: 0 } }}>
             {isAuthenticated ? (
               <>
                 <Tooltip title="Notifications">
-                  <IconButton component={Link} to="/notifications" sx={{ color: '#6B7280' }}>
-                    <Badge badgeContent={unreadCount} color="error" max={99}>
-                      <Notifications />
+                  <IconButton
+                    component={Link}
+                    to="/notifications"
+                    sx={{ color: '#64748B', '&:hover': { color: '#0F172A', bgcolor: '#F1F5F9' } }}
+                  >
+                    <Badge badgeContent={unreadCount} color="error">
+                      <Notifications fontSize="small" />
                     </Badge>
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Account">
-                  <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ p: 0.5 }}>
-                    <Avatar
-                      sx={{
-                        width: 36, height: 36,
-                        bgcolor: '#1A56DB',
-                        fontSize: 14,
-                        fontWeight: 700,
-                        border: '2px solid #EBF5FF',
-                      }}
-                    >
-                      {user?.profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase()}
-                    </Avatar>
-                  </IconButton>
-                </Tooltip>
+
+                <IconButton
+                  onClick={(e) => setAnchorEl(e.currentTarget)}
+                  sx={{ p: 0.5, border: '2px solid #E2E8F0', borderRadius: 3 }}
+                >
+                  <Avatar
+                    src={user?.profile?.avatar_url}
+                    sx={{ width: 34, height: 34, bgcolor: '#0D9488', fontSize: '0.875rem', fontWeight: 700 }}
+                  >
+                    {user?.profile?.full_name?.[0] || user?.email?.[0]?.toUpperCase()}
+                  </Avatar>
+                </IconButton>
+
                 <Menu
                   anchorEl={anchorEl}
                   open={Boolean(anchorEl)}
                   onClose={() => setAnchorEl(null)}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                  transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                   slotProps={{
-                    paper: { sx: { mt: 1, borderRadius: 2, minWidth: 220, boxShadow: '0 8px 24px rgba(0,0,0,0.12)' } },
+                    paper: {
+                      sx: {
+                        borderRadius: 3,
+                        boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                        minWidth: 200,
+                        p: 1,
+                      },
+                    },
                   }}
                 >
-                  <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #F3F4F6' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#111928' }}>
-                      {user?.profile?.full_name || user?.email}
+                  <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid #F1F5F9' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: '#0F172A' }}>
+                      {user?.profile?.full_name || 'Healthcare User'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {user?.email}
-                    </Typography>
+                    <Typography sx={{ fontSize: '0.75rem', color: '#64748B' }}>{user?.email}</Typography>
                   </Box>
-                  <MenuItem component={Link} to="/dashboard" onClick={() => setAnchorEl(null)} sx={{ mt: 0.5 }}>
-                    <Dashboard sx={{ mr: 1.5, fontSize: 20, color: '#1A56DB' }} /> Dashboard
+                  <MenuItem component={Link} to="/dashboard" onClick={() => setAnchorEl(null)} sx={{ borderRadius: 2, my: 0.5 }}>
+                    <ListItemIcon><Dashboard fontSize="small" sx={{ color: '#0D9488' }} /></ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>Dashboard</Typography>
                   </MenuItem>
-                  <MenuItem component={Link} to="/profile" onClick={() => setAnchorEl(null)}>
-                    <Person sx={{ mr: 1.5, fontSize: 20, color: '#0E9F6E' }} /> Profile
+                  <MenuItem component={Link} to="/appointments" onClick={() => setAnchorEl(null)} sx={{ borderRadius: 2, my: 0.5 }}>
+                    <ListItemIcon><CalendarMonth fontSize="small" sx={{ color: '#0D9488' }} /></ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>My Appointments</Typography>
                   </MenuItem>
-                  {hasRole('admin') && (
-                    <>
-                      <Divider sx={{ my: 0.5 }} />
-                      <MenuItem component={Link} to="/admin" onClick={() => setAnchorEl(null)}>
-                        <Shield sx={{ mr: 1.5, fontSize: 20, color: '#7C3AED' }} /> Admin Panel
-                      </MenuItem>
-                      <MenuItem component={Link} to="/admin/ambulances" onClick={() => setAnchorEl(null)}>
-                        <LocalShipping sx={{ mr: 1.5, fontSize: 20, color: '#D97706' }} /> Manage Ambulances
-                      </MenuItem>
-                    </>
-                  )}
-                  <Divider sx={{ my: 0.5 }} />
-                  <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
-                    <Logout sx={{ mr: 1.5, fontSize: 20 }} /> Logout
+                  <MenuItem component={Link} to="/profile" onClick={() => setAnchorEl(null)} sx={{ borderRadius: 2, my: 0.5 }}>
+                    <ListItemIcon><Person fontSize="small" sx={{ color: '#64748B' }} /></ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>Profile</Typography>
+                  </MenuItem>
+                  <Divider sx={{ my: 1 }} />
+                  <MenuItem onClick={handleLogout} sx={{ borderRadius: 2, color: '#DC2626' }}>
+                    <ListItemIcon><Logout fontSize="small" sx={{ color: '#DC2626' }} /></ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>Sign Out</Typography>
                   </MenuItem>
                 </Menu>
               </>
             ) : (
-              <>
-                <Button component={Link} to="/login" variant="outlined" size="small" sx={{ borderRadius: 2, px: 2 }}>
-                  Login
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  component={Link}
+                  to="/login"
+                  size="small"
+                  sx={{ color: '#0F172A', fontWeight: 600, textTransform: 'none', px: 2 }}
+                >
+                  Log in
                 </Button>
-                <Button component={Link} to="/register" variant="contained" size="small" sx={{ borderRadius: 2, px: 2 }}>
-                  Sign Up
+                <Button
+                  component={Link}
+                  to="/register"
+                  variant="contained"
+                  size="small"
+                  sx={{
+                    bgcolor: '#0D9488',
+                    color: 'white',
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    borderRadius: 2.5,
+                    px: 2.5,
+                    '&:hover': { bgcolor: '#0F766E' },
+                  }}
+                >
+                  Sign up
                 </Button>
-              </>
+              </Box>
             )}
           </Box>
         </Toolbar>
@@ -210,135 +268,65 @@ export default function Layout() {
 
       {/* Mobile Drawer */}
       <Drawer
+        anchor="left"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        slotProps={{ paper: { sx: { width: 280, borderRadius: 0 } } }}
+        slotProps={{ paper: { sx: { width: 280, p: 2 } } }}
       >
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F3F4F6' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box sx={{
-              width: 36, height: 36, borderRadius: 2,
-              background: 'linear-gradient(135deg, #1A56DB, #0E9F6E)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Typography sx={{ color: 'white', fontWeight: 900, fontSize: 16 }}>S</Typography>
-            </Box>
-            <Typography sx={{ fontWeight: 800, color: '#111928' }}>SCSP</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 2.5,
+              background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+            }}
+          >
+            <LocalHospital sx={{ fontSize: 20 }} />
           </Box>
-          <IconButton onClick={() => setDrawerOpen(false)} size="small" aria-label="Close menu">
-            <MenuIcon />
-          </IconButton>
-        </Box>
-
-        <Box sx={{ p: 2 }}>
-          <Typography variant="overline" sx={{ color: '#9CA3AF', fontWeight: 700, letterSpacing: '0.08em', px: 1 }}>
-            Navigation
+          <Typography sx={{ fontWeight: 800, color: '#0F172A', fontSize: 16 }}>
+            Smart Health
           </Typography>
-          <List dense>
-            <ListItem
-              component={Link}
-              to="/"
-              onClick={() => setDrawerOpen(false)}
-              sx={{
-                cursor: 'pointer',
-                borderRadius: 2,
-                mb: 0.5,
-                bgcolor: isActive('/') ? '#EBF5FF' : 'transparent',
-                '&:hover': { bgcolor: '#F3F4F6' },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40, color: isActive('/') ? '#1A56DB' : '#6B7280' }}>
-                <Home />
-              </ListItemIcon>
-              <ListItemText primary="Home" slotProps={{ primary: { sx: { fontWeight: 600 } } }} />
-              {isActive('/') && <ChevronRight sx={{ color: '#1A56DB', fontSize: 20 }} />}
-            </ListItem>
-            {NAV_ITEMS.map((item) => (
-              <ListItem
-                key={item.path}
-                component={Link}
-                to={item.path}
-                onClick={() => setDrawerOpen(false)}
-                sx={{
-                  cursor: 'pointer',
-                  borderRadius: 2,
-                  mb: 0.5,
-                  bgcolor: isActive(item.path) ? '#EBF5FF' : 'transparent',
-                  '&:hover': { bgcolor: '#F3F4F6' },
-                }}
-              >
-                <ListItemIcon sx={{ minWidth: 40, color: isActive(item.path) ? '#1A56DB' : '#6B7280' }}>
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: 600 } } }} />
-                {isActive(item.path) && <ChevronRight sx={{ color: '#1A56DB', fontSize: 20 }} />}
-              </ListItem>
-            ))}
-          </List>
-
-          <Divider sx={{ my: 1 }} />
-
-          <List dense>
-            <ListItem
-              component={Link}
-              to="/emergency"
-              onClick={() => setDrawerOpen(false)}
-              sx={{
-                cursor: 'pointer',
-                borderRadius: 2,
-                bgcolor: '#FEF2F2',
-                '&:hover': { bgcolor: '#FEE2E2' },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                <Emergency sx={{ color: '#E02424' }} />
-              </ListItemIcon>
-              <ListItemText
-                primary={<Typography color="error" sx={{ fontWeight: 700 }}>Emergency</Typography>}
-              />
-            </ListItem>
-          </List>
-
-          {isAuthenticated && (
-            <>
-              <Divider sx={{ my: 1 }} />
-              <List dense>
-                <ListItem
-                  component={Link}
-                  to="/dashboard"
-                  onClick={() => setDrawerOpen(false)}
-                  sx={{ cursor: 'pointer', borderRadius: 2, mb: 0.5, '&:hover': { bgcolor: '#F3F4F6' } }}
-                >
-                  <ListItemIcon sx={{ minWidth: 40 }}><Dashboard sx={{ color: '#1A56DB' }} /></ListItemIcon>
-                  <ListItemText primary="Dashboard" slotProps={{ primary: { sx: { fontWeight: 600 } } }} />
-                </ListItem>
-                <ListItem
-                  component={Link}
-                  to="/profile"
-                  onClick={() => setDrawerOpen(false)}
-                  sx={{ cursor: 'pointer', borderRadius: 2, mb: 0.5, '&:hover': { bgcolor: '#F3F4F6' } }}
-                >
-                  <ListItemIcon sx={{ minWidth: 40 }}><Person sx={{ color: '#0E9F6E' }} /></ListItemIcon>
-                  <ListItemText primary="Profile" slotProps={{ primary: { sx: { fontWeight: 600 } } }} />
-                </ListItem>
-                {hasRole('admin') && (
-                  <ListItem
-                    component={Link}
-                    to="/admin"
-                    onClick={() => setDrawerOpen(false)}
-                    sx={{ cursor: 'pointer', borderRadius: 2, mb: 0.5, '&:hover': { bgcolor: '#F3F4F6' } }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 40 }}><Shield sx={{ color: '#7C3AED' }} /></ListItemIcon>
-                    <ListItemText primary="Admin Panel" slotProps={{ primary: { sx: { fontWeight: 600 } } }} />
-                  </ListItem>
-                )}
-              </List>
-            </>
-          )}
         </Box>
+
+        {/* Mobile Search */}
+        <form onSubmit={handleNavSearch} className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" style={{ fontSize: 18 }} />
+          <input
+            type="text"
+            placeholder="Search doctors, hospitals..."
+            value={navSearch}
+            onChange={(e) => setNavSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-xs font-medium bg-slate-100 text-slate-900 placeholder-slate-400 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+        </form>
+
+        <List>
+          {NAV_ITEMS.map((item) => (
+            <ListItem
+              key={item.path}
+              component={Link}
+              to={item.path}
+              onClick={() => setDrawerOpen(false)}
+              sx={{
+                borderRadius: 2.5,
+                mb: 0.5,
+                bgcolor: isActive(item.path) ? '#F0FDFA' : 'transparent',
+                color: isActive(item.path) ? '#0D9488' : '#475569',
+              }}
+            >
+              <ListItemIcon sx={{ color: 'inherit', minWidth: 38 }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.label} slotProps={{ primary: { sx: { fontWeight: 600, fontSize: '0.875rem' } } }} />
+            </ListItem>
+          ))}
+        </List>
       </Drawer>
 
-      {/* Page content with animation */}
+      {/* Page Content */}
       <AnimatePresence mode="wait">
         <motion.main
           key={location.pathname}
@@ -353,76 +341,68 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Footer */}
-      <Box component="footer" sx={{ bgcolor: '#111928', color: '#9CA3AF', pt: 5, pb: 3, mt: 'auto' }}>
-        <Box sx={{ maxWidth: 1200, mx: 'auto', px: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4, mb: 4 }}>
+      <Box component="footer" sx={{ bgcolor: '#0F172A', color: '#94A3B8', pt: 8, pb: 4, mt: 'auto' }}>
+        <Box sx={{ maxWidth: 1200, mx: 'auto', px: 4 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '2fr 1fr 1fr' }, gap: 4, mb: 6 }}>
             {/* Brand */}
-            <Box sx={{ maxWidth: 300 }}>
+            <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                <Box sx={{
-                  width: 32, height: 32, borderRadius: 2,
-                  background: 'linear-gradient(135deg, #1A56DB, #0E9F6E)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Typography sx={{ color: 'white', fontWeight: 900, fontSize: 14 }}>S</Typography>
+                <Box
+                  sx={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 2,
+                    background: 'linear-gradient(135deg, #0D9488, #0F766E)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                  }}
+                >
+                  <LocalHospital sx={{ fontSize: 20 }} />
                 </Box>
-                <Typography sx={{ color: 'white', fontWeight: 800, fontSize: 16 }}>SCSP</Typography>
+                <Typography sx={{ color: 'white', fontWeight: 800, fontSize: 18 }}>Smart Health</Typography>
               </Box>
-              <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-                Smart Community Services Platform — connecting citizens with essential services through AI-powered technology.
+              <Typography variant="body2" sx={{ lineHeight: 1.7, color: '#94A3B8', fontSize: '0.8125rem' }}>
+                Find Better Care. Make Better Health Decisions. <br />
+                A centralized, intelligent healthcare platform connecting citizens with certified doctors, accredited hospitals, clinical departments, and voluntary blood donors.
               </Typography>
             </Box>
 
-            {/* Quick links */}
+            {/* Healthcare Discovery */}
             <Box>
-              <Typography sx={{ color: 'white', fontWeight: 700, mb: 1.5, fontSize: 14 }}>Quick Links</Typography>
-              {['Services', 'Hospitals', 'Blood Donors', 'Emergency'].map((l) => (
-                <Typography key={l} variant="body2" sx={{ mb: 0.75, cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {l}
-                </Typography>
-              ))}
-            </Box>
-
-            {/* Support */}
-            <Box>
-              <Typography sx={{ color: 'white', fontWeight: 700, mb: 1.5, fontSize: 14 }}>Support</Typography>
-              {['About', 'Privacy Policy', 'Terms of Service', 'Contact'].map((l) => (
-                <Typography key={l} variant="body2" sx={{ mb: 0.75, cursor: 'pointer', '&:hover': { color: 'white' } }}>
-                  {l}
-                </Typography>
-              ))}
-            </Box>
-
-            {/* Emergency contact */}
-            <Box>
-              <Typography sx={{ color: 'white', fontWeight: 700, mb: 1.5, fontSize: 14 }}>Emergency</Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Phone sx={{ fontSize: 16, color: '#E02424' }} />
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#FCA5A5' }}>999</Typography>
+              <Typography sx={{ color: 'white', fontWeight: 700, mb: 2, fontSize: '0.875rem' }}>Healthcare Services</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: '0.8125rem' }}>
+                <Link to="/doctors" style={{ color: 'inherit', textDecoration: 'none' }}>Find Doctors</Link>
+                <Link to="/hospitals" style={{ color: 'inherit', textDecoration: 'none' }}>Hospitals & Clinics</Link>
+                <Link to="/blood-donors" style={{ color: 'inherit', textDecoration: 'none' }}>Blood Donors</Link>
+                <Link to="/ai-assistant" style={{ color: 'inherit', textDecoration: 'none' }}>Smart Health AI</Link>
               </Box>
-              <Typography variant="body2" sx={{ mb: 0.75 }}>
-                Ambulance: 199
-              </Typography>
-              <Typography variant="body2">
-                Blood Bank: 16263
-              </Typography>
+            </Box>
+
+            {/* Quick Actions */}
+            <Box>
+              <Typography sx={{ color: 'white', fontWeight: 700, mb: 2, fontSize: '0.875rem' }}>Patient Access</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, fontSize: '0.8125rem' }}>
+                <Link to="/appointments" style={{ color: 'inherit', textDecoration: 'none' }}>My Appointments</Link>
+                <Link to="/blood-request" style={{ color: 'inherit', textDecoration: 'none' }}>Request Blood</Link>
+                <Link to="/dashboard" style={{ color: 'inherit', textDecoration: 'none' }}>Patient Dashboard</Link>
+                <Link to="/profile" style={{ color: 'inherit', textDecoration: 'none' }}>Profile Settings</Link>
+              </Box>
             </Box>
           </Box>
 
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)', mb: 2 }} />
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', mb: 3 }} />
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-            <Typography variant="body2">© 2025 Smart Community Services Platform. All rights reserved.</Typography>
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Chip
-                label="v1.0"
-                size="small"
-                sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: '#9CA3AF', fontSize: 11, height: 22 }}
-              />
-              <Typography variant="body2" sx={{ color: '#6B7280' }}>
-                Made with ❤️ for the community
-              </Typography>
-            </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem', color: '#64748B' }}>
+              © {new Date().getFullYear()} Smart Health Platform. All medical records and profiles are confidential.
+            </Typography>
+            <Chip
+              label="Smart Health v2.0"
+              size="small"
+              sx={{ bgcolor: 'rgba(13,148,136,0.2)', color: '#2DD4BF', fontSize: '0.6875rem', height: 22, fontWeight: 700 }}
+            />
           </Box>
         </Box>
       </Box>

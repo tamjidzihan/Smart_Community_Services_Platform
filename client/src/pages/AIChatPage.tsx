@@ -58,7 +58,7 @@ export default function AIChatPage() {
       const res = await aiApi.getHistory(sid)
       const history = res.data.results
       if (history.length > 0) {
-        const loaded: AIMessage[] = history.map((m, i) => ({
+        const loaded: AIMessage[] = history.map((m: any, i: number) => ({
           id: `hist-${i}`,
           role: m.role as 'user' | 'assistant',
           content: m.content,
@@ -208,7 +208,7 @@ export default function AIChatPage() {
             </Typography>
           )}
           <List disablePadding>
-            {sessionsData?.sessions?.map((s) => (
+            {sessionsData?.sessions?.map((s: any) => (
               <ListItemButton
                 key={s.session_id}
                 selected={currentSessionId === s.session_id} // Use state instead of ref

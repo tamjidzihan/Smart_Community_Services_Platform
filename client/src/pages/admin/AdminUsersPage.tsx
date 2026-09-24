@@ -159,15 +159,18 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {u.roles.length > 0 ? u.roles.map((r) => (
-                              <Chip
-                                key={r}
-                                label={r.toUpperCase()}
-                                color={ROLE_COLORS[r] ?? 'default'}
-                                size="small"
-                                variant="outlined"
-                              />
-                            )) : <Chip label="NO ROLE" size="small" variant="outlined" color="default" />}
+                            {u.roles && u.roles.length > 0 ? u.roles.map((r: any) => {
+                              const rName = typeof r === 'string' ? r : r.name
+                              return (
+                                <Chip
+                                  key={rName}
+                                  label={rName.toUpperCase()}
+                                  color={ROLE_COLORS[rName] ?? 'default'}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                              )
+                            }) : <Chip label="NO ROLE" size="small" variant="outlined" color="default" />}
                           </Box>
                         </TableCell>
                         <TableCell align="center">
@@ -184,7 +187,7 @@ export default function AdminUsersPage() {
                           <Typography variant="caption" color="text.secondary">{formatDate(u.date_joined)}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="caption" color="text.secondary">{formatDate(u.last_login)}</Typography>
+                          <Typography variant="caption" color="text.secondary">{formatDate(u.last_login || null)}</Typography>
                         </TableCell>
                       </TableRow>
                     ))

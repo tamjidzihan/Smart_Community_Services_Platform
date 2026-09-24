@@ -9,27 +9,16 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage'
 import ResetPasswordPage from '../pages/ResetPasswordPage'
 import VerifyEmailPage from '../pages/VerifyEmailPage'
 import DashboardPage from '../pages/DashboardPage'
-import ServicesPage from '../pages/ServicesPage'
-import ServiceDetailPage from '../pages/ServiceDetailPage'
 import HospitalsPage from '../pages/HospitalsPage'
 import HospitalDetailPage from '../pages/HospitalDetailPage'
 import DoctorsPage from '../pages/DoctorsPage'
+import { DoctorDetailPage } from '../pages/DoctorDetailPage'
 import AppointmentsPage from '../pages/AppointmentsPage'
 import BloodDonorsPage from '../pages/BloodDonorsPage'
 import BloodRequestPage from '../pages/BloodRequestPage'
-import EmergencyPage from '../pages/EmergencyPage'
-import EmergencyTrackPage from '../pages/EmergencyTrackPage'
-import EducationPage from '../pages/EducationPage'
-import NGOPage from '../pages/NGOPage'
-import GovernmentPage from '../pages/GovernmentPage'
 import AIChatPage from '../pages/AIChatPage'
 import ProfilePage from '../pages/ProfilePage'
 import NotificationsPage from '../pages/NotificationsPage'
-import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
-import AdminUsersPage from '../pages/admin/AdminUsersPage'
-import AdminAnalyticsPage from '../pages/admin/AdminAnalyticsPage'
-import AdminRequestsPage from '../pages/admin/AdminRequestsPage'
-import AdminAmbulancePage from '../pages/admin/AdminAmbulancePage'
 
 import NotFoundPage from '../pages/NotFoundPage'
 import ErrorPage from '../pages/ErrorPage'
@@ -54,51 +43,37 @@ export const router = createBrowserRouter([
     errorElement: <ErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'services', element: <ServicesPage /> },
-      { path: 'services/:id', element: <ServiceDetailPage /> },
       { path: 'hospitals', element: <HospitalsPage /> },
       { path: 'hospitals/:id', element: <HospitalDetailPage /> },
       { path: 'doctors', element: <DoctorsPage /> },
+      { path: 'doctors/:id', element: <DoctorDetailPage /> },
       { path: 'blood-donors', element: <BloodDonorsPage /> },
-      { path: 'education', element: <EducationPage /> },
-      { path: 'ngo', element: <NGOPage /> },
-      { path: 'government', element: <GovernmentPage /> },
+      { path: 'blood/donors', element: <BloodDonorsPage /> },
       { path: 'ai-assistant', element: <AIChatPage /> },
       { path: 'verify-email', element: <VerifyEmailPage /> },
 
       // Guest-only
       {
-        element: <GuestRoute />, children: [
+        element: <GuestRoute />,
+        children: [
           { path: 'login', element: <LoginPage /> },
           { path: 'register', element: <RegisterPage /> },
           { path: 'forgot-password', element: <ForgotPasswordPage /> },
           { path: 'reset-password', element: <ResetPasswordPage /> },
-        ]
+        ],
       },
 
       // Auth required
       {
-        element: <ProtectedRoute />, children: [
+        element: <ProtectedRoute />,
+        children: [
           { path: 'dashboard', element: <DashboardPage /> },
           { path: 'appointments', element: <AppointmentsPage /> },
           { path: 'blood-request', element: <BloodRequestPage /> },
-          { path: 'emergency', element: <EmergencyPage /> },
-          { path: 'emergency/:id/track', element: <EmergencyTrackPage /> },
+          { path: 'blood/requests', element: <BloodRequestPage /> },
           { path: 'profile', element: <ProfilePage /> },
           { path: 'notifications', element: <NotificationsPage /> },
-        ]
-      },
-
-      // Admin only
-      {
-        element: <ProtectedRoute roles={['admin', 'moderator']} />, children: [
-          { path: 'admin', element: <AdminDashboardPage /> },
-          { path: 'admin/users', element: <AdminUsersPage /> },
-          { path: 'admin/analytics', element: <AdminAnalyticsPage /> },
-          { path: 'admin/requests', element: <AdminRequestsPage /> },
-          { path: 'admin/ambulances', element: <AdminAmbulancePage /> },
-
-        ]
+        ],
       },
 
       { path: '*', element: <NotFoundPage /> },

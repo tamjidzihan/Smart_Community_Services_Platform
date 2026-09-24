@@ -169,7 +169,7 @@ export default function AdminAddEntityModal({ open, onClose, initialTab = 0 }: A
       if (!hospName || !hospAddr) return setErrorMsg('Hospital name and address are required.')
       createHospitalMutation.mutate({
         name: hospName,
-        category: hospType,
+        hospital_type: (hospType as any) || 'general',
         address: hospAddr,
         phone: hospPhone,
         bed_count: hospBeds,
@@ -181,9 +181,9 @@ export default function AdminAddEntityModal({ open, onClose, initialTab = 0 }: A
       if (!docName || !docSpecialty) return setErrorMsg('Doctor name and specialty are required.')
       createDoctorMutation.mutate({
         full_name: docName,
-        specialization: docSpecialty,
-        hospital: docHospital || undefined,
-        phone: docPhone,
+        degree_summary: docSpecialty,
+        current_position: docSpecialty,
+        mobile: docPhone,
         consultation_fee: docFee,
       })
     } else if (tab === 3) {

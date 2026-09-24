@@ -1,282 +1,613 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import {
-  Box, Typography, Button, Container, Grid, Card,
-  TextField, InputAdornment, Chip, Paper,
-} from '@mui/material'
-import {
-  Search, LocalHospital, Bloodtype, DirectionsCar, School,
-  People, AccountBalance, SmartToy, Emergency, ArrowForward,
-  CheckCircle,
+  Favorite,
+  Psychology,
+  AccessibilityNew,
+  ChildCare,
+  PregnantWoman,
+  Face,
+  Visibility,
+  Biotech,
+  MedicalServices,
+  WaterDrop,
+  SmartToy,
+  Verified,
+  ArrowForward,
+  LocationOn,
+  LocalHospital,
+  Category,
+  Clear,
+  Person,
+  FilterAlt,
 } from '@mui/icons-material'
-
-const CATEGORIES = [
-  { icon: <LocalHospital />, label: 'Hospitals', path: '/hospitals', color: '#EBF5FF', iconColor: '#1A56DB' },
-  { icon: <Bloodtype />, label: 'Blood Donors', path: '/blood-donors', color: '#FEE2E2', iconColor: '#E02424' },
-  { icon: <DirectionsCar />, label: 'Ambulance', path: '/emergency', color: '#FEF9C3', iconColor: '#D97706' },
-  { icon: <School />, label: 'Education', path: '/education', color: '#D1FAE5', iconColor: '#059669' },
-  { icon: <People />, label: 'NGOs', path: '/ngo', color: '#EDE9FE', iconColor: '#7C3AED' },
-  { icon: <AccountBalance />, label: 'Government', path: '/government', color: '#F3F4F6', iconColor: '#374151' },
-]
-
-const STATS = [
-  { value: '500+', label: 'Service Providers' },
-  { value: '10K+', label: 'Citizens Served' },
-  { value: '2K+', label: 'Blood Donors' },
-  { value: '50+', label: 'Hospitals Listed' },
-]
+import { Autocomplete, TextField } from '@mui/material'
+import { doctorApi, hospitalApi, departmentApi } from '../api/services'
+import { DoctorCard } from '../components/healthcare/DoctorCard'
+import { HospitalCard } from '../components/healthcare/HospitalCard'
+import { AppointmentBookingModal } from '../components/healthcare/AppointmentBookingModal'
+import type { Doctor, Hospital } from '../types'
 
 export default function HomePage() {
-  const navigate = useNavigate()
-  const [search, setSearch] = useState('')
+  const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null)
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (search.trim()) navigate(`/services?search=${encodeURIComponent(search)}`)
+  // ─── Fast Side-by-Side Filter States ──────────────────────────────
+  const [selectedArea, setSelectedArea] = useState<string | null>(null)
+  const [areaInput, setAreaInput] = useState('')
+  const [selectedHospital, setSelectedHospital] = useState<Hospital | null>(null)
+  const [hospitalInput, setHospitalInput] = useState('')
+  const [selectedDept, setSelectedDept] = useState<string | null>(null)
+  const [deptInput, setDeptInput] = useState('')
+
+  // 1. Load Area options early (lightweight list of strings)
+  const { data: locationsData, isLoading: isLoadingAreas } = useQuery({
+    queryKey: ['hospital-locations-early'],
+    queryFn: async () => {
+      const res = await hospitalApi.getLocations()
+      const areas = res.data?.areas || []
+      const cities = res.data?.cities || []
+      // Combine areas and cities uniquely
+      return Array.from(new Set([...areas, ...cities])).filter(Boolean)
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes cache
+  })
+
+  // 2. Load Common Departments early (lightweight list of strings)
+  const { data: commonDeptsData, isLoading: isLoadingDepts } = useQuery({
+    queryKey: ['common-departments-early'],
+    queryFn: async () => {
+      const res = await departmentApi.getCommonDepartments()
+      return res.data || []
+    },
+    staleTime: 1000 * 60 * 10, // 10 minutes cache
+  })
+
+  // 3. Load Hospitals dynamically when area or hospital name is typed/selected
+  const { data: hospitalsListData, isLoading: isLoadingHospitals } = useQuery({
+    queryKey: ['hospitals-dropdown', selectedArea, hospitalInput],
+    queryFn: async () => {
+      const params: Record<string, any> = { status: 'active', page_size: 50 }
+      if (selectedArea) params.area = selectedArea
+      if (hospitalInput.trim()) params.search = hospitalInput.trim()
+      const res = await hospitalApi.getHospitals(params)
+      return res.data?.results || []
+    },
+    enabled: Boolean(selectedArea || hospitalInput.length >= 2),
+    staleTime: 1000 * 60 * 5,
+  })
+
+  // 4. Load matching Doctors based on Area, Hospital, and Department
+  const hasSelectedFilters = Boolean(selectedArea || selectedHospital || selectedDept)
+
+  const { data: filteredDoctorsData, isLoading: isLoadingDoctors } = useQuery({
+    queryKey: ['home-doctors-filter', selectedArea, selectedHospital?.id, selectedDept],
+    queryFn: async () => {
+      const params: Record<string, any> = { page_size: 12 }
+      if (selectedArea) params.area = selectedArea
+      if (selectedHospital?.id) params.hospital = selectedHospital.id
+      if (selectedDept) params.department_name = selectedDept
+      const res = await doctorApi.getDoctors(params)
+      return res.data?.results || []
+    },
+    staleTime: 1000 * 60 * 2,
+  })
+
+  const clearDropdownFilters = () => {
+    setSelectedArea(null)
+    setAreaInput('')
+    setSelectedHospital(null)
+    setHospitalInput('')
+    setSelectedDept(null)
+    setDeptInput('')
   }
 
+  // Fetch Featured Doctors
+  const { data: featuredDoctors } = useQuery({
+    queryKey: ['featured-doctors'],
+    queryFn: async () => {
+      const res = await doctorApi.getDoctors()
+      const list = res.data?.results || res.data || []
+      return list.slice(0, 4)
+    },
+  })
+
+  // Fetch Top Hospitals
+  const { data: topHospitals } = useQuery({
+    queryKey: ['top-hospitals'],
+    queryFn: async () => {
+      const res = await hospitalApi.getHospitals({ status: 'active' })
+      const list = res.data?.results || res.data || []
+      return list.slice(0, 3)
+    },
+  })
+
+  const healthcareCategories = [
+    {
+      name: 'Heart & Cardiology',
+      icon: <Favorite className="text-rose-500" />,
+      bg: 'bg-rose-50',
+      query: 'Cardiology',
+      desc: 'Hypertension, ECG, Angiogram',
+    },
+    {
+      name: 'Brain & Neurology',
+      icon: <Psychology className="text-indigo-500" />,
+      bg: 'bg-indigo-50',
+      query: 'Neurology',
+      desc: 'Stroke, Headaches, Nerve care',
+    },
+    {
+      name: 'Orthopedics & Joints',
+      icon: <AccessibilityNew className="text-blue-500" />,
+      bg: 'bg-blue-50',
+      query: 'Orthopedics',
+      desc: 'Fractures, Spine & Arthritis',
+    },
+    {
+      name: 'Child Health (Pediatrics)',
+      icon: <ChildCare className="text-amber-500" />,
+      bg: 'bg-amber-50',
+      query: 'Pediatrics',
+      desc: 'Newborn care, Vaccinations',
+    },
+    {
+      name: 'Women & Gynecology',
+      icon: <PregnantWoman className="text-pink-500" />,
+      bg: 'bg-pink-50',
+      query: 'Gynecology',
+      desc: 'Maternity, Prenatal, Ultrasound',
+    },
+    {
+      name: 'Skin & Dermatology',
+      icon: <Face className="text-teal-500" />,
+      bg: 'bg-teal-50',
+      query: 'Dermatology',
+      desc: 'Skin care, Allergies, Hair',
+    },
+    {
+      name: 'Eye Care (Ophthalmology)',
+      icon: <Visibility className="text-cyan-500" />,
+      bg: 'bg-cyan-50',
+      query: 'Ophthalmology',
+      desc: 'Vision test, Cataract, Lasik',
+    },
+    {
+      name: 'Chest & Respiratory',
+      icon: <Biotech className="text-emerald-500" />,
+      bg: 'bg-emerald-50',
+      query: 'Medicine & Chest Medicine',
+      desc: 'Asthma, Lung care, Pulmonology',
+    },
+    {
+      name: 'General Internal Medicine',
+      icon: <MedicalServices className="text-violet-500" />,
+      bg: 'bg-violet-50',
+      query: 'Medicine',
+      desc: 'Fever, Diabetes, Thyroid, Gastro',
+    },
+  ]
+
   return (
-    <Box>
-      {/* Hero */}
-      <Box sx={{
-        background: 'linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #1A56DB 100%)',
-        color: 'white', py: { xs: 8, md: 12 }, position: 'relative', overflow: 'hidden',
-      }}>
-        {/* Background circles */}
-        {[...Array(3)].map((_, i) => (
-          <Box key={i} sx={{
-            position: 'absolute',
-            borderRadius: '50%',
-            border: '1px solid rgba(255,255,255,0.05)',
-            width: `${300 + i * 200}px`,
-            height: `${300 + i * 200}px`,
-            top: '50%', left: '60%',
-            transform: 'translate(-50%, -50%)',
-          }} />
-        ))}
+    <div className="space-y-16 pb-16">
+      {/* ─── Hero Section with Background Doctor Image & Integrated Filter ─── */}
+      <section className="relative overflow-hidden bg-slate-950 text-white pt-12 pb-20 px-4 sm:px-6 lg:px-8">
+        {/* Background Image with Ambient Glow & Overlay */}
+        <div
+          className="absolute inset-0 bg-cover bg-center mix-blend-luminosity scale-105 filter pointer-events-none"
+          style={{ backgroundImage: `url('/images/doctor_hero.jpg')` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/90 via-slate-950/80 to-slate-950 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(#0d9488_1px,transparent_1px)] [background-size:24px_24px] opacity-15 pointer-events-none" />
+        <div className="absolute top-1/4 -left-20 w-80 h-80 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-10 right-10 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
 
-        <Container maxWidth="lg" sx={{ position: 'relative' }}>
-          <Grid container spacing={4} sx={{ alignItems: 'center' }}>
-            <Grid size={{ xs: 12, md: 7 }}>
-              <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-                <Chip label="🚀 AI-Powered Community Platform" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white', mb: 3 }} />
-                <Typography variant="h2" sx={{ fontWeight: 800, lineHeight: 1.2, mb: 2, fontSize: { xs: '2rem', md: '3rem' } }}>
-                  Your City's Services,{' '}
-                  <Box component="span" sx={{ color: '#60A5FA' }}>One Platform</Box>
-                </Typography>
-                <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 18, mb: 4, maxWidth: 520 }}>
-                  Connect with hospitals, blood donors, ambulances, schools, NGOs, and government services — all in one intelligent app.
-                </Typography>
+        <div className="relative max-w-7xl mx-auto space-y-10">
+          {/* Hero Headline & Intro */}
+          <div className="text-center max-w-3xl mx-auto space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs font-bold tracking-wide backdrop-blur-md">
+              <Verified style={{ fontSize: 16 }} />
+              <span>Smart Health Care Network • 225+ Hospitals • 1,000+ Verified Doctors</span>
+            </div>
 
-                {/* Search bar */}
-                <Box component="form" onSubmit={handleSearch} sx={{ display: 'flex', gap: 1, maxWidth: 560 }}>
-                  <TextField
-                    fullWidth
-                    placeholder='Try "Find O+ blood donor near me" or "Emergency hospital"'
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    sx={{
-                      bgcolor: 'white', borderRadius: 2,
-                      '& .MuiOutlinedInput-root': { borderRadius: 2 },
-                    }}
-                    slotProps={{
-                      input: {
-                        startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9CA3AF' }} /></InputAdornment>,
-                      },
-                    }}
-                  />
-                  <Button type="submit" variant="contained" size="large" sx={{ bgcolor: '#0E9F6E', px: 3, whiteSpace: 'nowrap', '&:hover': { bgcolor: '#057A55' } }}>
-                    Search
-                  </Button>
-                </Box>
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight">
+              Compassionate Care.{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-300 via-teal-100 to-emerald-400">
+                Connected by Smart Tech.
+              </span>
+            </h1>
 
-                <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
-                  <Button component={Link} to="/ai-assistant" variant="outlined" startIcon={<SmartToy />}
-                    sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)', '&:hover': { borderColor: 'white' } }}>
-                    Ask AI Assistant
-                  </Button>
-                  <Button component={Link} to="/emergency" variant="contained" color="error" startIcon={<Emergency />}>
-                    Emergency Help
-                  </Button>
-                </Box>
-              </motion.div>
-            </Grid>
+            <p className="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed">
+              Instantly discover top-tier specialists, accredited hospital clinical chambers, emergency care, and voluntary blood donors in your area.
+            </p>
+          </div>
 
-            {/* Stats */}
-            <Grid size={{ xs: 12, md: 5 }}>
-              <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
-                <Grid container spacing={2}>
-                  {STATS.map((stat) => (
-                    <Grid size={6} key={stat.label}>
-                      <Paper sx={{ p: 2.5, bgcolor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)', textAlign: 'center' }}>
-                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#60A5FA' }}>{stat.value}</Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mt: 0.5 }}>{stat.label}</Typography>
-                      </Paper>
-                    </Grid>
-                  ))}
-                </Grid>
-              </motion.div>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
+          {/* ─── Integrated Side-by-Side Filter Card inside Hero ─── */}
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-white/40 shadow-2xl p-6 sm:p-8 text-slate-900 max-w-5xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200/80">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold mb-1">
+                  <FilterAlt style={{ fontSize: 16 }} /> Instant Specialist & Hospital Matcher
+                </div>
+                <h2 className="text-lg sm:text-xl font-extrabold text-slate-900">
+                  Find Doctors by Area, Hospital & Department
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Select your area, facility, and specialty to immediately view verified consultants.
+                </p>
+              </div>
 
-      {/* Categories */}
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Box sx={{ textAlign: 'center', mb: 5 }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-            Explore Community Services
-          </Typography>
-          <Typography color="text.secondary">
-            Find what you need across all major service categories
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Grid
-            container
-            spacing={2}
-            sx={{
-              maxWidth: '900px', // Adjust this to control the max width of the grid
-              justifyContent: 'center',
-            }}
-          >
-            {CATEGORIES.map((cat) => (
-              <Grid size={{ xs: 6, sm: 4, md: 2 }} key={cat.label}>
-                <motion.div
-                  whileHover={{ y: -4 }}
-                  transition={{ type: 'spring', stiffness: 300 }}
-                  style={{ height: '100%' }}
+              {hasSelectedFilters && (
+                <button
+                  onClick={clearDropdownFilters}
+                  className="self-start md:self-auto inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors"
                 >
-                  <Card
-                    component={Link}
-                    to={cat.path}
-                    sx={{
-                      textDecoration: 'none',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      width: '100%',
-                      minWidth: 120,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      p: 2,
-                      border: '1px solid #E5E7EB',
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        borderColor: '#1A56DB',
-                        boxShadow: '0 4px 20px rgba(26,86,219,0.15)',
-                      },
-                    }}
+                  <Clear style={{ fontSize: 14 }} />
+                  Reset Filters
+                </button>
+              )}
+            </div>
+
+            {/* 3 Side-by-Side Searchable Dropdowns */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+              {/* 1. Area Dropdown */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <LocationOn className="text-teal-600" style={{ fontSize: 18 }} />
+                  1. Select / Search Area
+                </label>
+                <Autocomplete
+                  options={locationsData || []}
+                  loading={isLoadingAreas}
+                  value={selectedArea}
+                  onChange={(_, newValue) => {
+                    setSelectedArea(newValue)
+                    setSelectedHospital(null)
+                  }}
+                  inputValue={areaInput}
+                  onInputChange={(_, newInputValue) => setAreaInput(newInputValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Type Area (e.g. Dhanmondi, Uttara)..."
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '16px',
+                          backgroundColor: '#F8FAFC',
+                          fontSize: '13px',
+                        },
+                      }}
+                    />
+                  )}
+                />
+              </div>
+
+              {/* 2. Hospital Dropdown */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <LocalHospital className="text-emerald-600" style={{ fontSize: 18 }} />
+                  2. Select / Search Hospital
+                </label>
+                <Autocomplete
+                  options={hospitalsListData || []}
+                  loading={isLoadingHospitals}
+                  getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
+                  value={selectedHospital}
+                  onChange={(_, newValue) => setSelectedHospital(newValue)}
+                  inputValue={hospitalInput}
+                  onInputChange={(_, newInputValue) => setHospitalInput(newInputValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={
+                        selectedArea
+                          ? `Hospitals in ${selectedArea}...`
+                          : 'Type hospital name (e.g. Square)...'
+                      }
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '16px',
+                          backgroundColor: '#F8FAFC',
+                          fontSize: '13px',
+                        },
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.id} className="p-2 text-xs hover:bg-slate-50 cursor-pointer">
+                      <div className="font-bold text-slate-900">{option.name}</div>
+                      <div className="text-[11px] text-slate-500">{option.area ? `${option.area}, ` : ''}{option.city || ''}</div>
+                    </li>
+                  )}
+                />
+              </div>
+
+              {/* 3. Department Dropdown */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                  <Category className="text-indigo-600" style={{ fontSize: 18 }} />
+                  3. Select / Search Department
+                </label>
+                <Autocomplete
+                  options={commonDeptsData || []}
+                  loading={isLoadingDepts}
+                  value={selectedDept}
+                  onChange={(_, newValue) => setSelectedDept(newValue)}
+                  inputValue={deptInput}
+                  onInputChange={(_, newInputValue) => setDeptInput(newInputValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Type Department (e.g. Cardiology)..."
+                      size="small"
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '16px',
+                          backgroundColor: '#F8FAFC',
+                          fontSize: '13px',
+                        },
+                      }}
+                    />
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Active Filter Summary Badges */}
+            {hasSelectedFilters && (
+              <div className="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-bold text-slate-500">Active Criteria:</span>
+                {selectedArea && (
+                  <span className="px-3 py-1 bg-teal-50 text-teal-800 rounded-full font-semibold flex items-center gap-1">
+                    <LocationOn style={{ fontSize: 14 }} /> Area: {selectedArea}
+                  </span>
+                )}
+                {selectedHospital && (
+                  <span className="px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full font-semibold flex items-center gap-1">
+                    <LocalHospital style={{ fontSize: 14 }} /> Hospital: {selectedHospital.name}
+                  </span>
+                )}
+                {selectedDept && (
+                  <span className="px-3 py-1 bg-indigo-50 text-indigo-800 rounded-full font-semibold flex items-center gap-1">
+                    <Category style={{ fontSize: 14 }} /> Dept: {selectedDept}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Filtered Doctor Results inside Card */}
+            {hasSelectedFilters && (
+              <div className="mt-8 pt-6 border-t border-slate-200/80">
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-900">
+                      Matching Doctors ({filteredDoctorsData?.length || 0})
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Verified physicians matching your chosen criteria
+                    </p>
+                  </div>
+
+                  <Link
+                    to={`/doctors?${selectedArea ? `area=${encodeURIComponent(selectedArea)}&` : ''}${selectedHospital ? `hospital=${encodeURIComponent(selectedHospital.id)}&` : ''}${selectedDept ? `department=${encodeURIComponent(selectedDept)}` : ''}`}
+                    className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1 hover:underline"
                   >
-                    <Box
-                      sx={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 3,
-                        bgcolor: cat.color,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mb: 1.5,
-                        color: cat.iconColor,
-                        flexShrink: 0,
-                      }}
+                    View in Full Directory <ArrowForward style={{ fontSize: 14 }} />
+                  </Link>
+                </div>
+
+                {isLoadingDoctors && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 py-6">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="bg-slate-50 rounded-2xl p-4 animate-pulse space-y-3">
+                        <div className="w-14 h-14 bg-slate-200 rounded-2xl" />
+                        <div className="h-4 bg-slate-200 rounded w-3/4" />
+                        <div className="h-3 bg-slate-200 rounded w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!isLoadingDoctors && filteredDoctorsData && filteredDoctorsData.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                    {filteredDoctorsData.map((doc: Doctor) => (
+                      <DoctorCard key={doc.id} doctor={doc} onBook={(d) => setBookingDoctor(d)} />
+                    ))}
+                  </div>
+                )}
+
+                {!isLoadingDoctors && (!filteredDoctorsData || filteredDoctorsData.length === 0) && (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300">
+                    <Person className="text-slate-400 mx-auto mb-2" style={{ fontSize: 32 }} />
+                    <div className="text-sm font-bold text-slate-800 mb-1">No doctors found for this combination</div>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mb-4">
+                      Try clearing one of the filters or searching across nearby hospital branches.
+                    </p>
+                    <button
+                      onClick={clearDropdownFilters}
+                      className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 transition-colors"
                     >
-                      {cat.icon}
-                    </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontWeight: 600,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {cat.label}
-                    </Typography>
-                  </Card>
-                </motion.div>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      </Container>
+                      Clear Filter Criteria
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
-      {/* Features section */}
-      <Box sx={{ bgcolor: '#F9FAFB', py: 8 }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={6} sx={{ alignItems: 'center' }}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Typography variant="overline" color="primary" sx={{ fontWeight: 600 }}>Smart Features</Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>AI-Powered Community Assistant</Typography>
-              <Typography color="text.secondary" sx={{ mb: 3 }}>
-                Our GPT-4 powered assistant understands natural language to help you find services, request help, and navigate community resources instantly.
-              </Typography>
-              {[
-                'Find O+ blood donors within 20km',
-                'Dispatch the nearest ambulance automatically',
-                'Book hospital appointments with one tap',
-                'Get real-time emergency response suggestions',
-              ].map((feature) => (
-                <Box key={feature} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                  <CheckCircle sx={{ color: '#0E9F6E', fontSize: 20 }} />
-                  <Typography variant="body2">{feature}</Typography>
-                </Box>
-              ))}
-              <Button component={Link} to="/ai-assistant" variant="contained" endIcon={<ArrowForward />} sx={{ mt: 2 }}>
-                Try AI Assistant
-              </Button>
-            </Grid>
+          {/* Quick Stats Ribbon */}
+          <div className="pt-8 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-4xl mx-auto border-t border-slate-800/80 text-center">
+            <div>
+              <div className="text-2xl font-bold text-white">1,000+</div>
+              <div className="text-xs text-slate-400">Verified Doctors</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-white">225+</div>
+              <div className="text-xs text-slate-400">Hospitals & Centers</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-teal-300">24/7</div>
+              <div className="text-xs text-slate-400">Emergency Care</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-rose-400">1,000+</div>
+              <div className="text-xs text-slate-400">Blood Donors</div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Paper sx={{ p: 3, bgcolor: '#111928', borderRadius: 3, color: 'white', fontFamily: 'monospace', fontSize: 13 }}>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  {['#FF5F57', '#FEBC2E', '#28C840'].map((c) => (
-                    <Box key={c} sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: c }} />
-                  ))}
-                </Box>
-                {[
-                  { role: 'user', msg: 'I need O+ blood urgently in Dhaka' },
-                  { role: 'ai', msg: '🩸 Found 3 O+ donors within 5km! Notifying them now...' },
-                  { role: 'user', msg: 'Show hospitals with cardiology near me' },
-                  { role: 'ai', msg: '🏥 Found 2 hospitals: City Medical (2.1km) ⭐4.8, Apollo (4.3km) ⭐4.6' },
-                ].map((m, i) => (
-                  <Box key={i} sx={{ mb: 1.5 }}>
-                    <Typography sx={{ color: m.role === 'user' ? '#60A5FA' : '#34D399', fontSize: 11, mb: 0.5 }}>
-                      {m.role === 'user' ? '👤 You' : '🤖 AI Assistant'}
-                    </Typography>
-                    <Typography sx={{ color: '#E5E7EB', fontSize: 13, pl: 1 }}>{m.msg}</Typography>
-                  </Box>
-                ))}
-              </Paper>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
+      {/* Discovery by Healthcare Needs */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center max-w-2xl mx-auto mb-10">
+          <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">What healthcare do you need?</h2>
+          <p className="text-slate-500 text-sm mt-1.5">
+            Select a specialty to explore top departments, consultants, and clinical chambers.
+          </p>
+        </div>
 
-      {/* CTA */}
-      <Box sx={{ background: 'linear-gradient(135deg, #1A56DB, #0E9F6E)', py: 8, textAlign: 'center', color: 'white' }}>
-        <Container>
-          <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>Ready to Get Started?</Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.8)', mb: 4 }}>
-            Join thousands of citizens already using SCSP to access community services smarter.
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button component={Link} to="/register" variant="contained" size="large"
-              sx={{ bgcolor: 'white', color: '#1A56DB', '&:hover': { bgcolor: '#F3F4F6' } }}>
-              Create Free Account
-            </Button>
-            <Button component={Link} to="/services" variant="outlined" size="large"
-              sx={{ borderColor: 'white', color: 'white' }}>
-              Browse Services
-            </Button>
-          </Box>
-        </Container>
-      </Box>
-    </Box>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-4 sm:gap-6">
+          {healthcareCategories.map((cat, idx) => (
+            <Link
+              key={idx}
+              to={`/doctors?search=${encodeURIComponent(cat.query)}`}
+              className="group bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs hover:border-teal-500/50 hover:shadow-md transition-all flex items-start gap-4"
+            >
+              <div className={`w-12 h-12 rounded-2xl ${cat.bg} flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform`}>
+                {cat.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-teal-600 transition-colors line-clamp-1">
+                  {cat.name}
+                </h3>
+                <p className="text-slate-500 text-xs mt-0.5 line-clamp-1">{cat.desc}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* Top Doctors Preview */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Consult Top Doctors</h2>
+            <p className="text-slate-500 text-sm mt-1">Verified specialist doctors and faculty professors</p>
+          </div>
+          <Link
+            to="/doctors"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-teal-700 hover:text-teal-800"
+          >
+            <span>View All Doctors</span>
+            <ArrowForward fontSize="small" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {featuredDoctors && featuredDoctors.length > 0 ? (
+            featuredDoctors.map((doc: Doctor) => (
+              <DoctorCard key={doc.id} doctor={doc} onBook={(d) => setBookingDoctor(d)} />
+            ))
+          ) : (
+            <div className="col-span-full py-8 text-center text-slate-400 text-sm">
+              Loading top doctors...
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Top Hospitals & Medical Centers */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">Top Hospitals & Branches</h2>
+            <p className="text-slate-500 text-sm mt-1">Equipped with 24/7 emergency, ICU, and modern diagnostics</p>
+          </div>
+          <Link
+            to="/hospitals"
+            className="inline-flex items-center gap-1.5 text-sm font-bold text-teal-700 hover:text-teal-800"
+          >
+            <span>Explore Hospitals</span>
+            <ArrowForward fontSize="small" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {topHospitals && topHospitals.length > 0 ? (
+            topHospitals.map((hosp: Hospital) => (
+              <HospitalCard key={hosp.id} hospital={hosp} />
+            ))
+          ) : (
+            <div className="col-span-full py-8 text-center text-slate-400 text-sm">
+              Loading hospitals...
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Blood Donation Network Banner */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-br from-rose-950 via-slate-900 to-slate-950 text-white rounded-3xl p-8 sm:p-10 shadow-md border border-rose-900/30 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+          <div className="relative z-10 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 text-xs font-bold mb-3 border border-rose-500/30">
+              <WaterDrop fontSize="small" /> Voluntary Blood Donation Network
+            </div>
+            <h3 className="text-2xl sm:text-3xl font-extrabold mb-2">Need Blood or Want to Save Lives?</h3>
+            <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
+              Connect directly with verified compatible voluntary blood donors in your area or broadcast an emergency blood transfusion request in seconds.
+            </p>
+          </div>
+          <div className="relative z-10 flex flex-wrap items-center gap-3 shrink-0">
+            <Link
+              to="/blood-request"
+              className="px-6 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs sm:text-sm transition-colors shadow-md"
+            >
+              Post Blood Request
+            </Link>
+            <Link
+              to="/blood-donors"
+              className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm border border-white/20 transition-colors"
+            >
+              Explore Donors Network
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Assistant Banner */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-gradient-to-r from-teal-900 to-slate-900 text-white rounded-3xl p-8 sm:p-10 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-teal-300 shrink-0">
+              <SmartToy style={{ fontSize: 36 }} />
+            </div>
+            <div>
+              <h3 className="text-xl sm:text-2xl font-bold">Smart Health AI Assistant</h3>
+              <p className="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
+                Describe your health symptoms or care requirements in plain language. Our AI assistant will guide you to the right department, specialist, and hospital.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/ai-assistant"
+            className="px-6 py-3.5 rounded-2xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs sm:text-sm transition-colors shrink-0 shadow-md"
+          >
+            Chat with Health Assistant
+          </Link>
+        </div>
+      </section>
+
+      {/* Booking Modal */}
+      {bookingDoctor && (
+        <AppointmentBookingModal
+          doctor={bookingDoctor}
+          open={!!bookingDoctor}
+          onClose={() => setBookingDoctor(null)}
+        />
+      )}
+    </div>
   )
 }

@@ -13,18 +13,13 @@ def health_check(request):
 
 def root_view(request):
     return JsonResponse({
-        "message": "Welcome to Smart Community Services Platform API",
+        "message": "Welcome to Smart Health Platform API",
         "docs": "/api/docs/",
         "admin": "/admin/",
         "endpoints": {
             "auth": "/api/v1/auth/",
-            "services": "/api/v1/services/",
             "healthcare": "/api/v1/healthcare/",
             "blood": "/api/v1/blood/",
-            "ambulance": "/api/v1/ambulance/",
-            "education": "/api/v1/education/",
-            "ngo": "/api/v1/ngo/",
-            "government": "/api/v1/government/",
             "reviews": "/api/v1/reviews/",
             "notifications": "/api/v1/notifications/",
             "ai": "/api/v1/ai/",
@@ -43,13 +38,8 @@ urlpatterns = [
 
     # API v1
     path('api/v1/auth/', include('apps.accounts.urls')),
-    path('api/v1/services/', include('apps.services.urls')),
     path('api/v1/healthcare/', include('apps.healthcare.urls')),
     path('api/v1/blood/', include('apps.blood.urls')),
-    path('api/v1/ambulance/', include('apps.ambulance.urls')),
-    path('api/v1/education/', include('apps.education.urls')),
-    path('api/v1/ngo/', include('apps.ngo.urls')),
-    path('api/v1/government/', include('apps.government.urls')),
     path('api/v1/reviews/', include('apps.reviews.urls')),
     path('api/v1/notifications/', include('apps.notifications.urls')),
     path('api/v1/ai/', include('apps.ai_assistant.urls')),
